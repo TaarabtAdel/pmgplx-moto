@@ -14,7 +14,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  */
 class HocVienDoThongTin extends Model
 {
-    protected $connection = 'sqlsrv_manhlinh';
+    protected $connection = 'sqlite';
 
     protected $table = 'HocVienDoThongTin';
 

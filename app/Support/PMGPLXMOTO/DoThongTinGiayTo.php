@@ -1,9 +1,11 @@
 <?php
 
-namespace App\Support\OCR;
+namespace App\Support\PMGPLXMOTO;
 
 use App\Models\DaoTao\HocVienDoThongTin;
-use App\Models\PMGPLX\NguoiLX;
+use App\Models\PMGPLXMOTO\NguoiLX;
+use App\Support\OCR\GiayToParser;
+use App\Support\OCR\GoogleVisionClient;
 use App\Support\PMGPLX\DmDvhcTenDayDu;
 use App\Support\PMGPLX\NgayVn;
 use Carbon\Carbon;

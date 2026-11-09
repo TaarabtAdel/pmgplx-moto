@@ -1,218 +1,67 @@
-# KHGPLX — Laravel
+# KHGPLX — PMGPLX-MOTO (ứng dụng riêng)
 
-Ứng dụng quản lý GPLX. Chạy bằng Docker từ thư mục **`khgplx`** (cùng cấp với `docker-compose.yml`).
+Bản tách từ `laravel/`, **chỉ** tab **PMGPLX-MOTO**:
 
-## Khởi động
+- Quản lý giáo viên, học viên, xe, khoá học (bản mới)
+- Học viên bản cũ (`pmgplxmotoold`)
+- Đồng bộ học viên sang bản cũ, nhập từ file, dò thông tin CCCD/GPLX
 
-```bash
-cd ..   # vào thư mục khgplx
-docker compose up -d --build
-docker compose run --rm app composer install
-docker compose exec app php artisan key:generate
-```
+## Cơ sở dữ liệu
 
-App: http://localhost:8080
+Hai SQL Server (giống `DB_DATABASE_4` / `DB_DATABASE_5` trong `laravel/.env`):
 
-## Cấu hình DB
+| Connection Laravel | Database mặc định |
+|--------------------|-------------------|
+| `sqlsrv_moto`      | `GPLX_MOTO_BAN_MOI` |
+| `sqlsrv_moto_old`  | `GPLX_MOTO_BAN_CU`  |
 
-File `.env` — hai database thường dùng trên Docker:
+SQLite (file local) chỉ cho bảng `HocVienDoThongTin` (kết quả «Dò thông tin»), không bắt buộc nếu không dùng chức năng đó.
 
-```env
-DB_HOST=db
-DB_PORT=1433
-DB_USERNAME=sa
-DB_PASSWORD=YourPassword123!
-
-DB_DATABASE=GPLX_BAN_MOI          # PMGPLX (mặc định sqlsrv): lịch, danh mục, KhoaHoc, …
-DB_DATABASE_2=GPLX_BAN_CU         # (tùy chọn) DB cũ để so sánh
-DB_DATABASE_3=MANHLINH            # sqlsrv_manhlinh: DAT, phân công, tiến độ, …
-DB_DATABASE_4=GPLX_MOTO_BAN_MOI   # sqlsrv_moto
-DB_DATABASE_5=GPLX_MOTO_BAN_CU    # sqlsrv_moto_old
-```
-
-Tạo database (lần đầu):
+## Cài đặt
 
 ```bash
-docker compose exec db /opt/mssql-tools18/bin/sqlcmd \
-  -S localhost -U sa -P "YourPassword123!" -C \
-  -Q "CREATE DATABASE MANHLINH"
+cd laravel-moto
+cp .env.example .env
+php artisan key:generate
+composer install   # nếu chưa có vendor
+php artisan migrate   # sqlite HocVienDoThongTin
 ```
 
-Migration bảng MANHLINH:
+## Chạy
+
+Mặc định `MOTO_STANDALONE=true`: **không** đăng nhập, menu đầy đủ.
+
+Chạy dev:
 
 ```bash
-docker compose exec app php artisan migrate \
-  --database=sqlsrv_manhlinh \
-  --path=database/migrations/manhlinh
+php artisan serve --port=8081
 ```
 
-Kiểm tra trạng thái migration:
+## Docker (port 8081)
+
+Dùng **cùng** container SQL Server với app ô tô (`8080`):
 
 ```bash
-docker compose exec app php artisan migrate:status \
-  --database=sqlsrv_manhlinh \
-  --path=database/migrations/manhlinh
+cd ..   # thư mục khgplx (có docker-compose.yml)
+docker compose up -d db app          # ô tô — nếu chưa chạy
+docker compose -f docker-compose.yml -f docker-compose.moto.yml up -d --build app-moto
+
+# lần đầu (trong laravel-moto/.env có APP_KEY)
+docker compose -f docker-compose.yml -f docker-compose.moto.yml exec app-moto php artisan key:generate
+docker compose -f docker-compose.yml -f docker-compose.moto.yml exec app-moto php artisan migrate
 ```
 
-**Reset sạch bảng MANHLINH** (xóa hết bảng, rồi migrate lại từ đầu — mất toàn bộ dữ liệu):
+Mở **http://localhost:8081** → PMGPLX-MOTO.
 
-```bash
-docker compose exec db /opt/mssql-tools18/bin/sqlcmd \
-  -S localhost -U sa -P "YourPassword123!" -C -d MANHLINH -Q "
-SET NOCOUNT ON;
-DECLARE @sql NVARCHAR(MAX) = N'';
-SELECT @sql += N'ALTER TABLE [' + OBJECT_SCHEMA_NAME(parent_object_id) + N'].[' + OBJECT_NAME(parent_object_id) + N'] DROP CONSTRAINT [' + name + N'];' + CHAR(13)
-FROM sys.foreign_keys;
-EXEC sp_executesql @sql;
-SET @sql = N'';
-SELECT @sql += N'DROP TABLE [' + TABLE_SCHEMA + N'].[' + TABLE_NAME + N'];' + CHAR(13)
-FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_TYPE = 'BASE TABLE';
-EXEC sp_executesql @sql;"
+Biến `DB_*` trong container được set bởi `docker-compose.moto.yml` (`GPLX_MOTO_BAN_MOI` / `GPLX_MOTO_BAN_CU`). File `laravel-moto/.env` vẫn cần `APP_KEY` và tuỳ chọn Google Vision (dò thông tin).
 
-docker compose exec app php artisan migrate \
-  --database=sqlsrv_manhlinh \
-  --path=database/migrations/manhlinh
-```
+## Đồng bộ với `laravel/`
 
-Sau migrate sạch, DB có các bảng nghiệp vụ DAT + `migrations`, gồm: `GiaoVien`, `XeTapLai`, `KhoaDaoTao`, `PhanCongDaoTao`, `TienDoDaoTao`, `DatDSPhien`, `DatPhanLoaiPhien`, `DatDSPhienPhanLoai`, `DatDieuKienCanhBao`, `DatDieuKienDat`, `DatPhanCongHocVien`, …
+Khi sửa chức năng MOTO trên `laravel/`, có thể rsync lại phần liên quan:
 
-## Backup / restore `.bak` (Docker)
-
-Chạy mọi lệnh từ thư mục **`khgplx`** (có `docker-compose.yml`).
-
-**Mount file backup vào container:**
-
-| Thư mục host | Trong container |
-|---|---|
-| `laravel/database/dumps/` | `/var/opt/mssql/dumps` |
-| `sqlserver-backup/` | `/var/opt/mssql/backup` |
-
-Backup từ Windows (SQL Server 2012) thường đặt tại `sqlserver-backup/`. Có thể copy sang `laravel/database/dumps/` nếu muốn.
-
-**Lưu ý:** Restore backup Windows lên SQL Server trong Docker **bắt buộc** dùng `MOVE` (đường dẫn `.mdf`/`.ldf` trong `.bak` trỏ `C:\Program Files\...`). Nếu đổi file `.bak` mới, xem tên logical file:
-
-```bash
-docker compose exec db /opt/mssql-tools18/bin/sqlcmd \
-  -S localhost -U sa -P "YourPassword123!" -C \
-  -Q "RESTORE FILELISTONLY FROM DISK = N'/var/opt/mssql/dumps/TEN_FILE.bak'"
-```
-
-**Sau restore từ `.bak` đầy đủ:** không chạy `migrate` MANHLINH (DB đã có bảng + dữ liệu). Chỉ dùng migrate khi [reset sạch bảng](#reset-sạch-bảng-manhlinh) ở trên.
-
-### Restore MANHLINH → `DB_DATABASE_3`
-
-File mẫu: `sqlserver-backup/MANHLINH.bak` (logical: `MANHLINH`, `MANHLINH_log`).
-
-```bash
-# Copy vào dumps (nếu file đang ở sqlserver-backup)
-cp sqlserver-backup/MANHLINH.bak laravel/database/dumps/
-
-docker compose exec db /opt/mssql-tools18/bin/sqlcmd \
-  -S localhost -U sa -P "YourPassword123!" -C -Q "
-IF DB_ID(N'MANHLINH') IS NOT NULL BEGIN
-  ALTER DATABASE MANHLINH SET SINGLE_USER WITH ROLLBACK IMMEDIATE;
-  DROP DATABASE MANHLINH;
-END
-RESTORE DATABASE MANHLINH FROM DISK = N'/var/opt/mssql/dumps/MANHLINH.bak' WITH REPLACE,
-  MOVE N'MANHLINH'     TO N'/var/opt/mssql/data/MANHLINH.mdf',
-  MOVE N'MANHLINH_log' TO N'/var/opt/mssql/data/MANHLINH_log.ldf';"
-```
-
-### Restore GPLX MOTO → `DB_DATABASE_4` / `DB_DATABASE_5`
-
-File backup (không đuôi `.bak`): `sqlserver-backup/MOTO-CU`, `sqlserver-backup/MOTO-MOI`.
-
-| DB đích | File | Logical data / log |
-|---------|------|---------------------|
-| `GPLX_MOTO_BAN_CU` | `MOTO-CU` | `GPLX_CSDT`, `GPLX_CSDT_log` |
-| `GPLX_MOTO_BAN_MOI` | `MOTO-MOI` | `GPLX_CDB_CSDT_25122025`, `GPLX_CDB_CSDT_25122025_log` |
-
-Laravel: `sqlsrv_moto` → `GPLX_MOTO_BAN_MOI`, `sqlsrv_moto_old` → `GPLX_MOTO_BAN_CU`.
-
-```bash
-docker compose exec db /opt/mssql-tools18/bin/sqlcmd \
-  -S localhost -U sa -P "YourPassword123!" -C -Q "
-IF DB_ID(N'GPLX_MOTO_BAN_CU') IS NOT NULL BEGIN ALTER DATABASE GPLX_MOTO_BAN_CU SET SINGLE_USER WITH ROLLBACK IMMEDIATE; DROP DATABASE GPLX_MOTO_BAN_CU; END
-RESTORE DATABASE GPLX_MOTO_BAN_CU FROM DISK = N'/var/opt/mssql/backup/MOTO-CU' WITH REPLACE,
-  MOVE N'GPLX_CSDT' TO N'/var/opt/mssql/data/GPLX_MOTO_BAN_CU.mdf',
-  MOVE N'GPLX_CSDT_log' TO N'/var/opt/mssql/data/GPLX_MOTO_BAN_CU_log.ldf';
-IF DB_ID(N'GPLX_MOTO_BAN_MOI') IS NOT NULL BEGIN ALTER DATABASE GPLX_MOTO_BAN_MOI SET SINGLE_USER WITH ROLLBACK IMMEDIATE; DROP DATABASE GPLX_MOTO_BAN_MOI; END
-RESTORE DATABASE GPLX_MOTO_BAN_MOI FROM DISK = N'/var/opt/mssql/backup/MOTO-MOI' WITH REPLACE,
-  MOVE N'GPLX_CDB_CSDT_25122025' TO N'/var/opt/mssql/data/GPLX_MOTO_BAN_MOI.mdf',
-  MOVE N'GPLX_CDB_CSDT_25122025_log' TO N'/var/opt/mssql/data/GPLX_MOTO_BAN_MOI_log.ldf';"
-```
-
-### Restore GPLX_BAN_MOI → `DB_DATABASE`
-
-File mẫu: `sqlserver-backup/GPLX_CSDL_CSDT_202608140324PM.bak` (logical: `GPLX_CDB_CSDT_25122025`, `GPLX_CDB_CSDT_25122025_log`).
-
-```bash
-docker compose exec db /opt/mssql-tools18/bin/sqlcmd \
-  -S localhost -U sa -P "YourPassword123!" -C -Q "
-IF DB_ID(N'GPLX_BAN_MOI') IS NOT NULL BEGIN
-  ALTER DATABASE GPLX_BAN_MOI SET SINGLE_USER WITH ROLLBACK IMMEDIATE;
-  DROP DATABASE GPLX_BAN_MOI;
-END
-RESTORE DATABASE GPLX_BAN_MOI FROM DISK = N'/var/opt/mssql/backup/GPLX_CSDL_CSDT_202608140324PM.bak' WITH REPLACE,
-  MOVE N'GPLX_CDB_CSDT_25122025'     TO N'/var/opt/mssql/data/GPLX_BAN_MOI.mdf',
-  MOVE N'GPLX_CDB_CSDT_25122025_log' TO N'/var/opt/mssql/data/GPLX_BAN_MOI_log.ldf';"
-```
-
-### Restore cả hai DB (một lần)
-
-```bash
-cp sqlserver-backup/MANHLINH.bak laravel/database/dumps/
-
-docker compose exec db /opt/mssql-tools18/bin/sqlcmd \
-  -S localhost -U sa -P "YourPassword123!" -C -Q "
-IF DB_ID(N'MANHLINH') IS NOT NULL BEGIN ALTER DATABASE MANHLINH SET SINGLE_USER WITH ROLLBACK IMMEDIATE; DROP DATABASE MANHLINH; END
-RESTORE DATABASE MANHLINH FROM DISK = N'/var/opt/mssql/dumps/MANHLINH.bak' WITH REPLACE,
-  MOVE N'MANHLINH' TO N'/var/opt/mssql/data/MANHLINH.mdf',
-  MOVE N'MANHLINH_log' TO N'/var/opt/mssql/data/MANHLINH_log.ldf';
-IF DB_ID(N'GPLX_BAN_MOI') IS NOT NULL BEGIN ALTER DATABASE GPLX_BAN_MOI SET SINGLE_USER WITH ROLLBACK IMMEDIATE; DROP DATABASE GPLX_BAN_MOI; END
-RESTORE DATABASE GPLX_BAN_MOI FROM DISK = N'/var/opt/mssql/backup/GPLX_CSDL_CSDT_202608140324PM.bak' WITH REPLACE,
-  MOVE N'GPLX_CDB_CSDT_25122025' TO N'/var/opt/mssql/data/GPLX_BAN_MOI.mdf',
-  MOVE N'GPLX_CDB_CSDT_25122025_log' TO N'/var/opt/mssql/data/GPLX_BAN_MOI_log.ldf';"
-```
-
-**Backup MANHLINH (tạo file mới):**
-
-```bash
-BACKUP_FILE="MANHLINH_$(date +%Y%m%d_%H%M%S).bak"
-
-docker compose exec db /opt/mssql-tools18/bin/sqlcmd \
-  -S localhost -U sa -P "YourPassword123!" -C \
-  -Q "BACKUP DATABASE MANHLINH TO DISK = N'/var/opt/mssql/dumps/${BACKUP_FILE}' WITH FORMAT, INIT, NAME = N'MANHLINH-Full'"
-
-echo "File: laravel/database/dumps/${BACKUP_FILE}"
-```
-
-## Xuất file SQL (CREATE + INSERT) — tương thích SQL Server 2012
-
-Giống `mysqldump`: gồm tạo bảng + chèn dữ liệu. **Giả định DB `MANHLINH` đã tạo sẵn** (phù hợp SQL Server 2012 trên Windows). File không DROP database.
-
-**Xuất (Mac / Docker):**
-
-```bash
-docker compose exec app php artisan manhlinh:dump-sql
-```
-
-File ra: `laravel/database/dumps/MANHLINH.sql` (commit lên git được).
-
-Xuất kèm DROP + CREATE DATABASE (reset sạch trên Mac):
-
-```bash
-docker compose exec app php artisan manhlinh:dump-sql --fresh-db
-```
-
-**Import trên Windows (SQL Server 2012):**
-
-1. Tạo DB rỗng (nếu chưa có): `CREATE DATABASE MANHLINH`
-2. SSMS → mở `laravel/database/dumps/MANHLINH.sql` → Execute  
-   Hoặc sqlcmd:
-
-```powershell
-sqlcmd -S localhost -U sa -P "..." -C -i "C:\path\to\khgplx\laravel\database\dumps\MANHLINH.sql"
-```
-
-2. Sửa `laravel\.env` trỏ DB `MANHLINH` trên Win → chạy app.
+- `app/Http/Controllers/PMGPLXMOTO*`
+- `app/Models/PMGPLXMOTO*`
+- `app/Services/PMGPLXMOTO`
+- `app/Support/PMGPLX/{MaDkBanCu,DonVi*,SoGiay*}`
+- `resources/views/PMGPLXMOTO*`
+- `routes/pmgplxmoto.php`

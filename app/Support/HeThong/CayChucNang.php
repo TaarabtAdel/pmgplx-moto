@@ -2,7 +2,6 @@
 
 namespace App\Support\HeThong;
 
-use App\Support\MenuQldt;
 use Illuminate\Support\Str;
 
 /**
@@ -15,9 +14,6 @@ use Illuminate\Support\Str;
  */
 final class CayChucNang
 {
-    /** Tab QLĐT chèn giữa DAT và Hệ Thống (giữ thứ tự menu chính). */
-    private const VI_TRI_QLDT = 'he-thong';
-
     /** @var list<array<string, mixed>>|null */
     private static ?array $cay = null;
 
@@ -33,11 +29,6 @@ final class CayChucNang
 
         $cay = [];
         foreach (self::tinh() as $tab) {
-            if ($tab['khoa'] === self::VI_TRI_QLDT) {
-                foreach (config('menu_qldt.tabs', []) as $tabQldt) {
-                    $cay[] = self::tabQldt($tabQldt);
-                }
-            }
             $cay[] = self::chuanHoa($tab, '');
         }
 
@@ -179,39 +170,10 @@ final class CayChucNang
         return array_values(array_unique($out));
     }
 
-    /** Menu viết sẵn (PMGPLX, Phòng Đào Tạo, DAT, Hệ Thống) — giống menu chính trước đây. */
+    /** Menu PMGPLX-MOTO (bản mới + học viên bản cũ). */
     private static function tinh(): array
     {
-        $dat = fn (string $ten, string $title) => [
-            'khoa' => $ten, 'title' => $title, 'route' => 'daotao.pdt.dat.'.$ten, 'active' => ['daotao.pdt.dat.'.$ten.'*'],
-        ];
-        $nhap = fn (string $ten, string $khoa, string $title) => [
-            'khoa' => $khoa, 'title' => $title, 'route' => 'daotao.pdt.cong-cu-nhap.'.$ten, 'active' => ['daotao.pdt.cong-cu-nhap.'.$ten.'*'],
-        ];
-
         return [
-            [
-                'khoa' => 'pmgplx', 'title' => 'PMGPLX', 'children' => [
-                    ['khoa' => 'giao-vien', 'title' => 'Quản lý giáo viên', 'route' => 'pmgplx.dm.giao-vien.index', 'active' => ['pmgplx.dm.giao-vien.*']],
-                    ['khoa' => 'hoc-vien', 'title' => 'Quản lý học viên', 'route' => 'pmgplx.dm.hoc-vien.index', 'active' => ['pmgplx.dm.hoc-vien.*']],
-                    ['khoa' => 'hoc-vien-ban-cu', 'title' => 'Học viên (bản cũ)', 'route' => 'pmgplxold.dm.hoc-vien.index', 'active' => ['pmgplxold.*']],
-                    ['khoa' => 'xe', 'title' => 'Quản lý xe', 'route' => 'pmgplx.dm.xe.index', 'active' => ['pmgplx.dm.xe.*']],
-                    ['khoa' => 'khoa-hoc', 'title' => 'Quản lý khoá học', 'route' => 'pmgplx.dm.khoa-hoc.index', 'active' => ['pmgplx.dm.khoa-hoc.*']],
-                    [
-                        'khoa' => 'lich', 'title' => 'Lịch', 'divider' => true, 'children' => [
-                            ['khoa' => 'lich-giao-vien', 'title' => 'Lịch làm việc giáo viên', 'route' => 'pmgplx.lich.gv.index',
-                                'active' => ['pmgplx.lich.gv.index', 'pmgplx.lich.gv.destroy', 'pmgplx.lich.gv.destroy-theo-khoa']],
-                            ['khoa' => 'lich-xe', 'title' => 'Lịch sử dụng xe tập lái', 'route' => 'pmgplx.lich.xe.index', 'active' => ['pmgplx.lich.xe.*']],
-                            ['khoa' => 'do-trung', 'title' => 'Dò trùng lịch giáo viên', 'route' => 'pmgplx.lich.gv.do-trung', 'active' => ['pmgplx.lich.gv.do-trung']],
-                            ['khoa' => 'do-trong', 'title' => 'Dò lịch trống giáo viên', 'route' => 'pmgplx.lich.gv.do-trong', 'active' => ['pmgplx.lich.gv.do-trong*']],
-                            ['khoa' => 'them-ly-thuyet', 'title' => 'Thêm lịch lý thuyết', 'route' => 'pmgplx.lich.ly-thuyet.create', 'active' => ['pmgplx.lich.ly-thuyet.*'], 'divider' => true],
-                            ['khoa' => 'them-thuc-hanh', 'title' => 'Thêm lịch thực hành', 'route' => 'pmgplx.lich.thuc-hanh.create', 'active' => ['pmgplx.lich.thuc-hanh.*']],
-                            ['khoa' => 'nhap-file', 'title' => 'Nhập lịch từ file', 'route' => 'pmgplx.lich.nhap-file.create', 'active' => ['pmgplx.lich.nhap-file.*']],
-                            ['khoa' => 'nhap-thay-the', 'title' => 'Nhập lịch thay thế', 'route' => 'pmgplx.lich.nhap-thay-the.create', 'active' => ['pmgplx.lich.nhap-thay-the.*']],
-                        ],
-                    ],
-                ],
-            ],
             [
                 'khoa' => 'pmgplxmoto', 'title' => 'PMGPLX-MOTO', 'children' => [
                     ['khoa' => 'giao-vien', 'title' => 'Quản lý giáo viên', 'route' => 'pmgplxmoto.dm.giao-vien.index', 'active' => ['pmgplxmoto.dm.giao-vien.*']],
@@ -219,77 +181,6 @@ final class CayChucNang
                     ['khoa' => 'hoc-vien-ban-cu', 'title' => 'Học viên (bản cũ)', 'route' => 'pmgplxmotoold.dm.hoc-vien.index', 'active' => ['pmgplxmotoold.*']],
                     ['khoa' => 'xe', 'title' => 'Quản lý xe', 'route' => 'pmgplxmoto.dm.xe.index', 'active' => ['pmgplxmoto.dm.xe.*']],
                     ['khoa' => 'khoa-hoc', 'title' => 'Quản lý khoá học', 'route' => 'pmgplxmoto.dm.khoa-hoc.index', 'active' => ['pmgplxmoto.dm.khoa-hoc.*']],
-                ],
-            ],
-            [
-                'khoa' => 'phong-dao-tao', 'title' => 'Phòng Đào Tạo', 'children' => [
-                    [
-                        'khoa' => 'bao-cao', 'title' => 'Báo cáo', 'children' => [
-                            ['khoa' => 'luu-luong', 'title' => 'Báo cáo Lưu lượng đào tạo', 'route' => 'daotao.pdt.bc.luu-luong-dao-tao', 'active' => ['daotao.pdt.bc.luu-luong-dao-tao*']],
-                            ['khoa' => 'tien-do', 'title' => 'Báo cáo Tiến độ đào tạo', 'route' => 'daotao.pdt.bc.tien-do-dao-tao', 'active' => ['daotao.pdt.bc.tien-do-dao-tao*']],
-                            ['khoa' => 'thu-tien', 'title' => 'Quản lý thu tiền học viên', 'route' => 'daotao.pdt.bc.thu-tien-hoc-vien', 'active' => ['daotao.pdt.bc.thu-tien-hoc-vien*']],
-                            ['khoa' => 'cap-nhat-gplx', 'title' => 'Quản lý cập nhật GPLX học viên', 'route' => 'daotao.pdt.bc.cap-nhat-gplx', 'active' => ['daotao.pdt.bc.cap-nhat-gplx*']],
-                        ],
-                    ],
-                    [
-                        'khoa' => 'cong-cu-nhap', 'title' => 'Công cụ nhập', 'children' => [
-                            $nhap('nhap-file-tien-do-dao-tao', 'tien-do', 'Nhập file tiến độ đào tạo'),
-                            $nhap('nhap-file-so-phan-cong-giao-vien', 'so-phan-cong', 'Nhập file sổ phân công giáo viên'),
-                            $nhap('nhap-file-in-bang-ten', 'in-bang-ten', 'Nhập file in bảng tên'),
-                            $nhap('nhap-ket-qua-dao-tao', 'ket-qua-dao-tao', 'Nhập kết quả đào tạo'),
-                            $nhap('nhap-ket-qua-sat-hach', 'ket-qua-sat-hach', 'Nhập kết quả sát hạch'),
-                            $nhap('nhap-xml-bien-ban', 'xml-bien-ban', 'Nhập XML xuất biên bản'),
-                        ],
-                    ],
-                    [
-                        'khoa' => 'phan-cong', 'title' => 'Phân Công Đào Tạo', 'children' => [
-                            ['khoa' => 'giao-vien', 'title' => 'Phân công giáo viên', 'route' => 'daotao.pdt.phan-cong-dao-tao.danh-sach', 'active' => ['daotao.pdt.phan-cong-dao-tao.danh-sach']],
-                            ['khoa' => 'hoc-vien', 'title' => 'Phân công học viên', 'route' => 'daotao.pdt.dat.phan-cong-hoc-vien', 'active' => ['daotao.pdt.dat.phan-cong-hoc-vien*']],
-                            ['khoa' => 'tu-lich', 'title' => 'Phân công từ lịch PMGPLX', 'route' => 'daotao.pdt.phan-cong-dao-tao.danh-sach-tu-lich', 'active' => ['daotao.pdt.phan-cong-dao-tao.danh-sach-tu-lich']],
-                            ['khoa' => 'tong-hop', 'title' => 'Tổng hợp phân công (khoá · xe)', 'route' => 'daotao.pdt.phan-cong-dao-tao.danh-sach-tu-lich-tong-hop', 'active' => ['daotao.pdt.phan-cong-dao-tao.danh-sach-tu-lich-tong-hop*']],
-                        ],
-                    ],
-                ],
-            ],
-            [
-                'khoa' => 'dat', 'title' => 'DAT', 'children' => [
-                    ['khoa' => 'tong-hop', 'title' => 'Tổng hợp & theo dõi', 'children' => [
-                        $dat('tong-hop-hoc-vien', 'Tổng hợp học viên'),
-                        $dat('theo-doi', 'Theo dõi DAT'),
-                    ]],
-                    ['khoa' => 'phien', 'title' => 'Quản lý phiên', 'children' => [
-                        $dat('quan-ly-phien', 'Chi tiết phiên'),
-                        $dat('phan-loai-phien', 'Phân loại phiên'),
-                    ]],
-                    ['khoa' => 'do-phien', 'title' => 'Dò phiên', 'children' => [
-                        $dat('do-phien-tuyen-duong', 'Dò tuyến đường'),
-                        $dat('do-phien-anh', 'Dò ảnh'),
-                        $dat('do-phien-lich-xe', 'Dò phiên với lịch xe'),
-                    ]],
-                    ['khoa' => 'phan-cong', 'title' => 'Phân công', 'children' => [
-                        $dat('giao-vien-day-thay', 'Giáo viên dạy thay'),
-                        $dat('xe-day-thay', 'Xe dạy thay'),
-                        $dat('nhap-phan-cong-hoc-vien', 'Nhập phân công học viên'),
-                    ]],
-                    ['khoa' => 'nhap-lieu', 'title' => 'Nhập liệu', 'children' => [
-                        $dat('nhap-du-lieu-phien', 'Nhập dữ liệu phiên'),
-                        $dat('nhap-ket-qua-cuc', 'Nhập kết quả cục'),
-                    ]],
-                    ['khoa' => 'cau-hinh', 'title' => 'Cấu hình', 'children' => [
-                        $dat('dieu-kien-canh-bao', 'Điều kiện cảnh báo'),
-                        $dat('dieu-kien-do-phien', 'Điều kiện dò phiên'),
-                        $dat('dieu-kien-dat', 'Điều kiện đạt'),
-                    ]],
-                ],
-            ],
-            [
-                'khoa' => 'he-thong', 'title' => 'Hệ Thống', 'children' => [
-                    ['khoa' => 'nguoi-dung', 'title' => 'Người dùng', 'route' => 'hethong.nguoi-dung.index', 'active' => ['hethong.nguoi-dung.*']],
-                    ['khoa' => 'vai-tro', 'title' => 'Vai trò', 'children' => [
-                        ['khoa' => 'danh-sach', 'title' => 'Danh sách vai trò', 'route' => 'hethong.vai-tro.index', 'active' => ['hethong.vai-tro.*']],
-                        ['khoa' => 'phan-quyen', 'title' => 'Phân quyền', 'route' => 'hethong.phan-quyen.index', 'active' => ['hethong.phan-quyen.*']],
-                    ]],
-                    ['khoa' => 'cau-hinh-bai-day', 'title' => 'Cấu hình bài dạy theo hạng', 'route' => 'qldtoto.cau-hinh-bai-day.index', 'active' => ['qldtoto.cau-hinh-bai-day.*']],
                 ],
             ],
         ];

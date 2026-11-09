@@ -156,7 +156,7 @@
                                     @endif
                                 </td>
                                 <td>{{ $row->SoCMT }}</td>
-                                <td>{{ \App\Support\OCR\DoThongTinGiayTo::ngayDatetime($row->NgayCapCMT) }}</td>
+                                <td>{{ \App\Support\PMGPLXMOTO\DoThongTinGiayTo::ngayDatetime($row->NgayCapCMT) }}</td>
                                 <td>{{ $noiThuongTru[(string) $row->MaDK] ?? '' }}</td>
                                 <td>{{ $row->MaKhoaHoc }}</td>
                                 <td class="text-center text-nowrap">
@@ -164,7 +164,7 @@
                                     @if ($doRoi)
                                         @php
                                             $nhanDo = collect($doRoi->trangThai())
-                                                ->map(fn ($khop, $k) => (\App\Support\OCR\DoThongTinGiayTo::TRUONG[$k][0] ?? $k).': '.($khop ? 'Khớp' : 'Không khớp'))
+                                                ->map(fn ($khop, $k) => (\App\Support\PMGPLXMOTO\DoThongTinGiayTo::TRUONG[$k][0] ?? $k).': '.($khop ? 'Khớp' : 'Không khớp'))
                                                 ->implode("\n");
                                             $soLech = $doRoi->soTruongLech();
                                             $canChinh = $doRoi->KetLuan === \App\Models\DaoTao\HocVienDoThongTin::CAN_CHINH;
@@ -215,7 +215,7 @@
                                 <div class="small mb-2 text-break"><a id="dtt-link" href="#" target="_blank"></a></div>
                                 <div id="dtt-canh-bao-host" class="alert alert-warning py-1 px-2 small mb-2" hidden>
                                     Máy tính đang mở bằng <code>localhost</code> — điện thoại không vào được địa chỉ này.
-                                    Nhập địa chỉ LAN của máy chủ (vd. <code>http://192.168.1.10:8080</code>):
+                                    Nhập địa chỉ LAN của máy chủ (vd. <code>http://192.168.1.10:8081</code>):
                                 </div>
                                 <div class="input-group input-group-sm mb-1">
                                     <input type="text" class="form-control" id="dtt-goc" placeholder="Địa chỉ máy chủ cho điện thoại">

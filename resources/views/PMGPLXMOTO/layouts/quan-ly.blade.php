@@ -363,7 +363,7 @@
 </head>
 <body>
     <div class="app-header d-flex justify-content-between align-items-center">
-        <span>Quản Lý Trung Tâm— Trung Tâm Giáo Dục Nghề Nghiệp Mạnh Linh</span>
+        <span>KHGPLX — PMGPLX-MOTO (Mạnh Linh)</span>
         @auth
             <form method="POST" action="{{ route('logout') }}" class="form-inline mb-0">
                 @csrf
@@ -378,38 +378,8 @@
             <li class="nav-item">
                 <a class="nav-link {{ request()->routeIs('home') ? 'active' : '' }}" href="{{ route('home') }}">Trang chủ</a>
             </li>
-            @php $cayChucNang = \App\Support\HeThong\CayChucNang::cay(); @endphp
-            @foreach ($cayChucNang as $tabCay)
-                @if (! str_starts_with($tabCay['khoa'], 'qldt-') && $tabCay['khoa'] !== 'he-thong')
-                    @include('PMGPLXMOTO.layouts.partials.menu-tab', ['tab' => $tabCay])
-                @endif
-            @endforeach
-            @foreach (config('menu_qldt.tabs', []) as $tabIndex => $tab)
-                @php $khoaTabQldt = \App\Support\HeThong\CayChucNang::khoaTabQldt($tab); @endphp
-                @continue(! \App\Support\HeThong\PhanQuyenNguoiDung::coQuyen($khoaTabQldt))
-                <li class="nav-item dropdown">
-                    <a class="nav-link dropdown-toggle {{ \App\Support\MenuQldt::dangChon($tab) || request()->routeIs('qldtoto.index') ? 'active' : '' }}"
-                       href="#"
-                       id="navQldtDropdown{{ $tabIndex }}"
-                       role="button"
-                       data-toggle="dropdown"
-                       aria-haspopup="true"
-                       aria-expanded="false">
-                        {{ $tab['title'] }}
-                    </a>
-                    <div class="dropdown-menu menu-qldt" aria-labelledby="navQldtDropdown{{ $tabIndex }}">
-                        <a class="dropdown-item {{ request()->routeIs('qldtoto.index') ? 'active' : '' }}" href="{{ route('qldtoto.index') }}">
-                            Tổng quan các bước
-                        </a>
-                        <div class="dropdown-divider"></div>
-                        @include('PMGPLXMOTO.layouts.partials.menu-con', ['items' => $tab['children'] ?? [], 'khoaCha' => $khoaTabQldt, 'cap' => 1])
-                    </div>
-                </li>
-            @endforeach
-            @foreach ($cayChucNang as $tabCay)
-                @if ($tabCay['khoa'] === 'he-thong')
-                    @include('PMGPLXMOTO.layouts.partials.menu-tab', ['tab' => $tabCay])
-                @endif
+            @foreach (\App\Support\HeThong\CayChucNang::cay() as $tabCay)
+                @include('PMGPLXMOTO.layouts.partials.menu-tab', ['tab' => $tabCay])
             @endforeach
         </ul>
     </nav>

@@ -10,43 +10,36 @@ use Illuminate\Support\Facades\Route;
 
 class RouteServiceProvider extends ServiceProvider
 {
-    /**
-     * The path to your application's "home" route.
-     *
-     * Typically, users are redirected here after authentication.
-     *
-     * @var string
-     */
-    public const HOME = '/';
+    public const HOME = '/pmgplxmoto/danh-muc/giao-vien';
 
-    /**
-     * Define your route model bindings, pattern filters, and other route configuration.
-     */
     public function boot(): void
     {
         RateLimiter::for('api', function (Request $request) {
             return Limit::perMinute(60)->by($request->user()?->id ?: $request->ip());
         });
 
-        $this->routes(function () {
+        $webMiddleware = config('moto.standalone')
+            ? ['web']
+            : ['web', 'auth', 'phan.quyen'];
+
+        $this->routes(function () use ($webMiddleware) {
             Route::middleware('api')
                 ->prefix('api')
                 ->group(base_path('routes/api.php'));
 
-            Route::middleware('web')
-                ->group(base_path('routes/auth.php'));
+            if (! config('moto.standalone')) {
+                Route::middleware('web')
+                    ->group(base_path('routes/auth.php'));
+            }
 
             Route::middleware('web')
                 ->group(base_path('routes/do-thong-tin-cong-khai.php'));
 
-            Route::middleware(['web', 'auth', 'phan.quyen'])
+            Route::middleware($webMiddleware)
                 ->group(base_path('routes/web.php'));
 
-            Route::middleware(['web', 'auth', 'phan.quyen'])
+            Route::middleware($webMiddleware)
                 ->group(base_path('routes/pmgplxmoto.php'));
-
-            Route::middleware(['web', 'auth', 'phan.quyen'])
-                ->group(base_path('routes/qldtoto.php'));
         });
     }
 }

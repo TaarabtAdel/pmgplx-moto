@@ -2,7 +2,7 @@
 
 namespace App\Support\PMGPLX;
 
-use App\Models\PMGPLX\NguoiLX;
+use App\Models\PMGPLXMOTO\NguoiLX;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 

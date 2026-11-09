@@ -27,6 +27,10 @@ final class PhanQuyenNguoiDung
      */
     public static function coQuyen(string $khoa, ?NguoiDung $user = null): bool
     {
+        if (config('moto.standalone')) {
+            return true;
+        }
+
         $user ??= self::user();
         if ($user === null) {
             return false;
@@ -53,6 +57,10 @@ final class PhanQuyenNguoiDung
      */
     public static function choPhepRoute(string $tenRoute, ?NguoiDung $user = null): bool
     {
+        if (config('moto.standalone')) {
+            return true;
+        }
+
         $user ??= self::user();
         if ($user === null) {
             return false;
