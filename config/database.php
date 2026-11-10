@@ -33,7 +33,7 @@ return [
     |
     */
 
-    'connections' => [
+  'connections' => [
 
         'sqlite' => [
             'driver' => 'sqlite',
@@ -45,59 +45,53 @@ return [
 
         'sqlsrv_moto' => [
             'driver' => 'sqlsrv',
-            'host' => env('DB_HOST_4', env('DB_HOST', 'localhost')),
+            'host' => env('DB_HOST_4', env('DB_HOST', 'ADMIN-PC')),
             'port' => env('DB_PORT_4', env('DB_PORT', '1433')),
-            'database' => env('DB_DATABASE_4', 'GPLX_MOTO_BAN_MOI'),
-            'username' => env('DB_USERNAME_4', env('DB_USERNAME', 'forge')),
-            'password' => env('DB_PASSWORD_4', env('DB_PASSWORD', '')),
+            'database' => env('DB_DATABASE_4', 'GPLX_CDB_CSDT_MOTO'), // Đã sửa lại đúng tên DB
+            'username' => env('DB_USERNAME_4', env('DB_USERNAME', 'sa')),
+            'password' => env('DB_PASSWORD_4', env('DB_PASSWORD', '123456')),
             'charset' => 'utf8',
             'prefix' => '',
             'prefix_indexes' => true,
             'encrypt' => env('DB_ENCRYPT', 'yes'),
             'trust_server_certificate' => env('DB_TRUST_SERVER_CERTIFICATE', 'true'),
+            'options' => [
+                PDO::SQLSRV_ATTR_ENCODING => PDO::SQLSRV_ENCODING_UTF8,
+            ],
         ],
 
         'sqlsrv_moto_old' => [
             'driver' => 'sqlsrv',
-            'host' => env('DB_HOST_5', env('DB_HOST_2', env('DB_HOST', 'localhost'))),
-            'port' => env('DB_PORT_5', env('DB_PORT_2', env('DB_PORT', '1433'))),
-            'database' => env('DB_DATABASE_5', 'GPLX_MOTO_BAN_CU'),
-            'username' => env('DB_USERNAME_5', env('DB_USERNAME_2', env('DB_USERNAME', 'forge'))),
-            'password' => env('DB_PASSWORD_5', env('DB_PASSWORD_2', env('DB_PASSWORD', ''))),
+            'host' => env('DB_HOST', env('DB_HOST', env('DB_HOST', 'ADMIN-PC'))),
+            'port' => env('DB_PORT', env('DB_PORT', env('DB_PORT', '1433'))),
+            'database' => env('DB_DATABASE_2', 'DB_DATABASE_2'), // Đã sửa lại đúng tên DB
+            'username' => env('DB_USERNAME','sa'),
+            'password' => env('DB_PASSWORD', '123456'),
             'charset' => 'utf8',
             'prefix' => '',
             'prefix_indexes' => true,
             'encrypt' => env('DB_ENCRYPT', 'yes'),
             'trust_server_certificate' => env('DB_TRUST_SERVER_CERTIFICATE', 'true'),
+            'options' => [
+                PDO::SQLSRV_ATTR_ENCODING => PDO::SQLSRV_ENCODING_UTF8,
+            ],
         ],
-
-        /** App mô tô: dò thông tin, đăng nhập — không dùng chung DB MANHLINH ô tô. */
-        'sqlsrv_manhlinh_moto' => [
+		
+		'sqlsrv_manhlinh_moto' => [
             'driver' => 'sqlsrv',
-            'host' => env('DB_HOST_3', env('DB_HOST', 'localhost')),
-            'port' => env('DB_PORT_3', env('DB_PORT', '1433')),
-            'database' => env('DB_DATABASE_3', 'MANHLINH_MOTO'),
-            'username' => env('DB_USERNAME_3', env('DB_USERNAME', 'forge')),
-            'password' => env('DB_PASSWORD_3', env('DB_PASSWORD', '')),
+            'host' => env('DB_HOST', env('DB_HOST', env('DB_HOST', 'ADMIN-PC'))),
+            'port' => env('DB_PORT', env('DB_PORT', env('DB_PORT', '1433'))),
+            'database' => env('DB_DATABASE_3', 'DB_DATABASE_3'), // Đã sửa lại đúng tên DB
+            'username' => env('DB_USERNAME','sa'),
+            'password' => env('DB_PASSWORD', '123456'),
             'charset' => 'utf8',
             'prefix' => '',
             'prefix_indexes' => true,
             'encrypt' => env('DB_ENCRYPT', 'yes'),
             'trust_server_certificate' => env('DB_TRUST_SERVER_CERTIFICATE', 'true'),
-        ],
-
-        'sqlsrv_master' => [
-            'driver' => 'sqlsrv',
-            'host' => env('DB_HOST_3', env('DB_HOST', 'localhost')),
-            'port' => env('DB_PORT_3', env('DB_PORT', '1433')),
-            'database' => 'master',
-            'username' => env('DB_USERNAME_3', env('DB_USERNAME', 'forge')),
-            'password' => env('DB_PASSWORD_3', env('DB_PASSWORD', '')),
-            'charset' => 'utf8',
-            'prefix' => '',
-            'prefix_indexes' => true,
-            'encrypt' => env('DB_ENCRYPT', 'yes'),
-            'trust_server_certificate' => env('DB_TRUST_SERVER_CERTIFICATE', 'true'),
+            'options' => [
+                PDO::SQLSRV_ATTR_ENCODING => PDO::SQLSRV_ENCODING_UTF8,
+            ],
         ],
 
     ],
