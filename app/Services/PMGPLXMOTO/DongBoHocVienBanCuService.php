@@ -288,7 +288,6 @@ class DongBoHocVienBanCuService
                         $maKhoaHocNguon,
                         $maKhoaHocDich
                     );
-                    $this->copyDuongDanAnhFromSource($payloadHoSo, $hoSo);
                 }
 
                 [$payloadNguoi, $payloadHoSo] = DonViGtvtBanCu::applyFromKhoaHocDich(
@@ -296,6 +295,10 @@ class DongBoHocVienBanCuService
                     $payloadHoSo,
                     $khoaHocBanCu
                 );
+
+                if ($payloadHoSo !== null) {
+                    $this->applySourceDuongDanAnh($payloadHoSo, (string) $sourceMaDk);
+                }
 
                 $oldDb->table('NguoiLX')->updateOrInsert(['MaDK' => $targetMaDk], $payloadNguoi);
 
@@ -469,32 +472,50 @@ class DongBoHocVienBanCuService
         string $maKhoaHocDich
     ): array {
         if (array_key_exists('GhiChu', $payload) && $payload['GhiChu'] !== null && $payload['GhiChu'] !== '') {
-            $payload['GhiChu'] = str_replace(
-                [$sourceMaDk, $maKhoaHocNguon],
-                [$targetMaDk, $maKhoaHocDich],
-                (string) $payload['GhiChu']
-            );
+            $ghiChu = (string) $payload['GhiChu'];
+            if (! self::coVeDuongDanAnh($ghiChu)) {
+                $payload['GhiChu'] = str_replace(
+                    [$sourceMaDk, $maKhoaHocNguon],
+                    [$targetMaDk, $maKhoaHocDich],
+                    $ghiChu
+                );
+            }
         }
-        // DuongDanAnh: giữ nguyên đường dẫn ảnh trên bản mới (không thay MaDK / mã khóa trong path).
 
         return $payload;
     }
 
     /**
-     * Luôn ghi DuongDanAnh đúng như bản mới (đồng bộ lại sửa path cũ đã bị thay MaDK/khóa nhầm).
+     * `DuongDanAnh` / tên file ảnh luôn lấy từ bản mới (MaDK 44016…, thư mục khóa 44016…),
+     * không đổi theo MaDK / mã khóa đích 45003… — bước cuối trước khi ghi bản cũ.
      *
      * @param  array<string, mixed>  $payloadHoSo
      */
-    private function copyDuongDanAnhFromSource(array &$payloadHoSo, NguoiLXHoSo $hoSo): void
+    private function applySourceDuongDanAnh(array &$payloadHoSo, string $sourceMaDk): void
     {
         if (! Schema::connection('sqlsrv_moto_old')->hasColumn('NguoiLX_HoSo', 'DuongDanAnh')) {
             return;
         }
 
-        $duongDan = $hoSo->getAttributes()['DuongDanAnh'] ?? $hoSo->DuongDanAnh ?? null;
-        if ($duongDan !== null && $duongDan !== '') {
-            $payloadHoSo['DuongDanAnh'] = $duongDan;
+        $path = DB::connection('sqlsrv_moto')
+            ->table('NguoiLX_HoSo')
+            ->where('MaDK', $sourceMaDk)
+            ->value('DuongDanAnh');
+
+        if ($path === null || $path === '') {
+            return;
         }
+
+        $payloadHoSo['DuongDanAnh'] = $path;
+    }
+
+    private static function coVeDuongDanAnh(string $value): bool
+    {
+        if (preg_match('/\.(jp2|jpe?g|png|bmp|gif|tif{1,2})$/i', $value)) {
+            return true;
+        }
+
+        return str_contains($value, 'ANH GPLX') || str_contains($value, 'ANH_GPLX');
     }
 
     /**

@@ -199,7 +199,8 @@
                     <li><strong>NguoiLX_GPLX</strong> — GPLX đã có (nếu có)</li>
                     <li><strong>NguoiLXHS_GiayTo</strong> — giấy tờ kèm hồ sơ (đơn, CMT, ảnh…)</li>
                 </ul>
-                Chức năng này copy sang bản cũ <strong>3 bảng: NguoiLX + NguoiLX_HoSo + NguoiLXHS_GiayTo</strong>
+                Chức năng này copy sang bản cũ <strong>3 bảng: NguoiLX + NguoiLX_HoSo + NguoiLXHS_GiayTo</strong>.
+                <strong>DuongDanAnh</strong> (thư mục + tên file, vd. <code>44016K260001\44016-….jp2</code>) giữ nguyên như bản mới — không đổi theo Mã ĐK đích <code>45003-…</code>.
                 (mã ĐK và mã khóa được map sang khóa đích; giấy tờ upsert theo khóa <code>MaDK</code> + <code>MaGT</code>).
                 <strong>Đơn vị cấp GPLX</strong> (<code>DonViCapGPLXDaCo</code>) trên bản cũ: nếu <code>NgayTTGPLXDaCo</code> sau 01/03/2025 thì ghi <code>00</code>;
                 trước mốc đó lấy <strong>2 số đầu của <code>SoGPLXDaCo</code></strong> (vd. <code>450190001488</code> → <code>45</code>, <code>440155002955</code> → <code>44</code>).
