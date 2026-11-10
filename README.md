@@ -8,13 +8,11 @@ Bản tách từ `laravel/`, **chỉ** tab **PMGPLX-MOTO**:
 
 ## Cơ sở dữ liệu
 
-Hai SQL Server (giống `DB_DATABASE_4` / `DB_DATABASE_5` trong `laravel/.env`):
-
-| Connection Laravel       | Database mặc định    |
-|--------------------------|----------------------|
-| `sqlsrv_moto`            | `GPLX_MOTO_BAN_MOI`  |
-| `sqlsrv_moto_old`        | `GPLX_MOTO_BAN_CU`   |
-| `sqlsrv_manhlinh_moto`   | `MANHLINH_MOTO`      |
+| Connection Laravel       | Biến `.env` (live)        | Database mẫu |
+|--------------------------|---------------------------|--------------|
+| `sqlsrv_moto` / `sqlsrv` | `DB_DATABASE`             | `GPLX_CDB_CSDT_MOTO` |
+| `sqlsrv_moto_old`        | `DB_DATABASE_2`           | `GPLX_CSDT` |
+| `sqlsrv_manhlinh_moto`   | `DB_DATABASE_3`           | `MANHLINH` hoặc `MANHLINH_MOTO` (Docker) |
 
 `MANHLINH_MOTO` chỉ gồm bảng app mô tô (không copy MANHLINH ô tô): `HocVienDoThongTin`, `NguoiDung`, `VaiTro`, `PhanQuyen`, …
 

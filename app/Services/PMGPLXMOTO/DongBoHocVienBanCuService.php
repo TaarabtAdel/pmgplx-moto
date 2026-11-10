@@ -288,6 +288,7 @@ class DongBoHocVienBanCuService
                         $maKhoaHocNguon,
                         $maKhoaHocDich
                     );
+                    $this->copyDuongDanAnhFromSource($payloadHoSo, $hoSo);
                 }
 
                 [$payloadNguoi, $payloadHoSo] = DonViGtvtBanCu::applyFromKhoaHocDich(
@@ -477,6 +478,23 @@ class DongBoHocVienBanCuService
         // DuongDanAnh: giữ nguyên đường dẫn ảnh trên bản mới (không thay MaDK / mã khóa trong path).
 
         return $payload;
+    }
+
+    /**
+     * Luôn ghi DuongDanAnh đúng như bản mới (đồng bộ lại sửa path cũ đã bị thay MaDK/khóa nhầm).
+     *
+     * @param  array<string, mixed>  $payloadHoSo
+     */
+    private function copyDuongDanAnhFromSource(array &$payloadHoSo, NguoiLXHoSo $hoSo): void
+    {
+        if (! Schema::connection('sqlsrv_moto_old')->hasColumn('NguoiLX_HoSo', 'DuongDanAnh')) {
+            return;
+        }
+
+        $duongDan = $hoSo->getAttributes()['DuongDanAnh'] ?? $hoSo->DuongDanAnh ?? null;
+        if ($duongDan !== null && $duongDan !== '') {
+            $payloadHoSo['DuongDanAnh'] = $duongDan;
+        }
     }
 
     /**

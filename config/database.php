@@ -2,38 +2,28 @@
 
 use Illuminate\Support\Str;
 
-return [
+$motoBanMoi = [
+    'driver' => 'sqlsrv',
+    'host' => env('DB_HOST_4', env('DB_HOST', 'ADMIN-PC')),
+    'port' => env('DB_PORT_4', env('DB_PORT', '1433')),
+    'database' => env('DB_DATABASE_4', env('DB_DATABASE', 'GPLX_CDB_CSDT_MOTO')),
+    'username' => env('DB_USERNAME_4', env('DB_USERNAME', 'sa')),
+    'password' => env('DB_PASSWORD_4', env('DB_PASSWORD', '')),
+    'charset' => 'utf8',
+    'prefix' => '',
+    'prefix_indexes' => true,
+    'encrypt' => env('DB_ENCRYPT', 'yes'),
+    'trust_server_certificate' => env('DB_TRUST_SERVER_CERTIFICATE', 'true'),
+    'options' => [
+        PDO::SQLSRV_ATTR_ENCODING => PDO::SQLSRV_ENCODING_UTF8,
+    ],
+];
 
-    /*
-    |--------------------------------------------------------------------------
-    | Default Database Connection Name
-    |--------------------------------------------------------------------------
-    |
-    | Here you may specify which of the database connections below you wish
-    | to use as your default connection for all database work. Of course
-    | you may use many connections at once using the Database library.
-    |
-    */
+return [
 
     'default' => env('DB_CONNECTION', 'sqlsrv_moto'),
 
-    /*
-    |--------------------------------------------------------------------------
-    | Database Connections
-    |--------------------------------------------------------------------------
-    |
-    | Here are each of the database connections setup for your application.
-    | Of course, examples of configuring each database platform that is
-    | supported by Laravel is shown below to make development simple.
-    |
-    |
-    | All database work in Laravel is done through the PHP PDO facilities
-    | so make sure you have the driver for your particular database of
-    | choice installed on your machine before you begin development.
-    |
-    */
-
-  'connections' => [
+    'connections' => [
 
         'sqlite' => [
             'driver' => 'sqlite',
@@ -43,13 +33,19 @@ return [
             'foreign_key_constraints' => env('DB_FOREIGN_KEYS', true),
         ],
 
-        'sqlsrv_moto' => [
+        /** Live: `DB_CONNECTION=sqlsrv` + `DB_DATABASE` — cùng DB với `sqlsrv_moto`. */
+        'sqlsrv' => $motoBanMoi,
+
+        'sqlsrv_moto' => $motoBanMoi,
+
+        /** Phần mềm cũ — `DB_DATABASE_2` (vd. GPLX_CSDT). */
+        'sqlsrv_moto_old' => [
             'driver' => 'sqlsrv',
-            'host' => env('DB_HOST_4', env('DB_HOST', 'ADMIN-PC')),
-            'port' => env('DB_PORT_4', env('DB_PORT', '1433')),
-            'database' => env('DB_DATABASE_4', 'GPLX_CDB_CSDT_MOTO'), // Đã sửa lại đúng tên DB
-            'username' => env('DB_USERNAME_4', env('DB_USERNAME', 'sa')),
-            'password' => env('DB_PASSWORD_4', env('DB_PASSWORD', '123456')),
+            'host' => env('DB_HOST_5', env('DB_HOST_2', env('DB_HOST', 'ADMIN-PC'))),
+            'port' => env('DB_PORT_5', env('DB_PORT_2', env('DB_PORT', '1433'))),
+            'database' => env('DB_DATABASE_5', env('DB_DATABASE_2', 'GPLX_CSDT')),
+            'username' => env('DB_USERNAME_5', env('DB_USERNAME_2', env('DB_USERNAME', 'sa'))),
+            'password' => env('DB_PASSWORD_5', env('DB_PASSWORD_2', env('DB_PASSWORD', ''))),
             'charset' => 'utf8',
             'prefix' => '',
             'prefix_indexes' => true,
@@ -60,13 +56,14 @@ return [
             ],
         ],
 
-        'sqlsrv_moto_old' => [
+        /** App (dò thông tin, đăng nhập) — `DB_DATABASE_3` (live: MANHLINH; Docker có thể MANHLINH_MOTO). */
+        'sqlsrv_manhlinh_moto' => [
             'driver' => 'sqlsrv',
-            'host' => env('DB_HOST', env('DB_HOST', env('DB_HOST', 'ADMIN-PC'))),
-            'port' => env('DB_PORT', env('DB_PORT', env('DB_PORT', '1433'))),
-            'database' => env('DB_DATABASE_2', 'DB_DATABASE_2'), // Đã sửa lại đúng tên DB
-            'username' => env('DB_USERNAME','sa'),
-            'password' => env('DB_PASSWORD', '123456'),
+            'host' => env('DB_HOST_3', env('DB_HOST', 'ADMIN-PC')),
+            'port' => env('DB_PORT_3', env('DB_PORT', '1433')),
+            'database' => env('DB_DATABASE_3', 'MANHLINH'),
+            'username' => env('DB_USERNAME_3', env('DB_USERNAME', 'sa')),
+            'password' => env('DB_PASSWORD_3', env('DB_PASSWORD', '')),
             'charset' => 'utf8',
             'prefix' => '',
             'prefix_indexes' => true,
@@ -76,14 +73,14 @@ return [
                 PDO::SQLSRV_ATTR_ENCODING => PDO::SQLSRV_ENCODING_UTF8,
             ],
         ],
-		
-		'sqlsrv_manhlinh_moto' => [
+
+        'sqlsrv_master' => [
             'driver' => 'sqlsrv',
-            'host' => env('DB_HOST', env('DB_HOST', env('DB_HOST', 'ADMIN-PC'))),
-            'port' => env('DB_PORT', env('DB_PORT', env('DB_PORT', '1433'))),
-            'database' => env('DB_DATABASE_3', 'DB_DATABASE_3'), // Đã sửa lại đúng tên DB
-            'username' => env('DB_USERNAME','sa'),
-            'password' => env('DB_PASSWORD', '123456'),
+            'host' => env('DB_HOST_3', env('DB_HOST', 'ADMIN-PC')),
+            'port' => env('DB_PORT_3', env('DB_PORT', '1433')),
+            'database' => 'master',
+            'username' => env('DB_USERNAME_3', env('DB_USERNAME', 'sa')),
+            'password' => env('DB_PASSWORD_3', env('DB_PASSWORD', '')),
             'charset' => 'utf8',
             'prefix' => '',
             'prefix_indexes' => true,
@@ -96,29 +93,7 @@ return [
 
     ],
 
-    /*
-    |--------------------------------------------------------------------------
-    | Migration Repository Table
-    |--------------------------------------------------------------------------
-    |
-    | This table keeps track of all the migrations that have already run for
-    | your application. Using this information, we can determine which of
-    | the migrations on disk haven't actually been run in the database.
-    |
-    */
-
     'migrations' => 'migrations',
-
-    /*
-    |--------------------------------------------------------------------------
-    | Redis Databases
-    |--------------------------------------------------------------------------
-    |
-    | Redis is an open source, fast, and advanced key-value store that also
-    | provides a richer body of commands than a typical key-value system
-    | such as APC or Memcached. Laravel makes it easy to dig right in.
-    |
-    */
 
     'redis' => [
 
