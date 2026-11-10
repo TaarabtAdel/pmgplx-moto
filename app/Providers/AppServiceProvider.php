@@ -2,6 +2,7 @@
 
 namespace App\Providers;
 
+use App\Support\ManhlinhMoto;
 use Illuminate\Pagination\Paginator;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Schema;
@@ -23,33 +24,20 @@ class AppServiceProvider extends ServiceProvider
     public function boot(): void
     {
         Paginator::useBootstrapFour();
-        $this->ensureSqliteDoThongTin();
+        $this->ensureManhlinhMotoSchema();
     }
 
-    /** File sqlite + bảng HocVienDoThongTin (icon «đã dò» trên danh sách học viên). */
-    private function ensureSqliteDoThongTin(): void
+    /** DB MANHLINH_MOTO + bảng HocVienDoThongTin (icon «đã dò» trên danh sách học viên). */
+    private function ensureManhlinhMotoSchema(): void
     {
-        $path = (string) config('database.connections.sqlite.database');
-        if ($path === '') {
-            return;
-        }
-
-        if (! is_dir(dirname($path))) {
-            @mkdir(dirname($path), 0755, true);
-        }
-        if (! file_exists($path)) {
-            touch($path);
-        }
+        $conn = ManhlinhMoto::connection();
 
         try {
-            if (! Schema::connection('sqlite')->hasTable('HocVienDoThongTin')) {
-                Artisan::call('migrate', [
-                    '--force' => true,
-                    '--path' => 'database/migrations/2026_11_09_000000_create_hoc_vien_do_thong_tin_sqlite_table.php',
-                ]);
+            if (! Schema::connection($conn)->hasTable('HocVienDoThongTin')) {
+                Artisan::call('manhlinh-moto:setup');
             }
         } catch (\Throwable) {
-            // Không chặn trang nếu sqlite lỗi (quyền ghi, v.v.).
+            // SQL chưa chạy hoặc chưa tạo DB — không chặn trang.
         }
     }
 }

@@ -2,13 +2,15 @@
 
 namespace App\Models\HeThong;
 
+use App\Models\Concerns\UsesManhlinhMotoConnection;
+use App\Support\ManhlinhMoto;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Schema;
 
 /** Danh mục vai trò (Hệ Thống → Vai trò). Admin (LaHeThong) luôn đủ quyền, không xoá được. */
 class VaiTro extends Model
 {
-    protected $connection = 'sqlsrv_manhlinh';
+    use UsesManhlinhMotoConnection;
 
     protected $table = 'VaiTro';
 
@@ -47,7 +49,7 @@ class VaiTro extends Model
         if (self::$cache !== null) {
             return self::$cache;
         }
-        if (! Schema::connection('sqlsrv_manhlinh')->hasTable('VaiTro')) {
+        if (! Schema::connection(ManhlinhMoto::connection())->hasTable('VaiTro')) {
             return self::$cache = NguoiDung::VAI_TRO_MAC_DINH;
         }
 

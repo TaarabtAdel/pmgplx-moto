@@ -2,12 +2,13 @@
 
 namespace App\Models\HeThong;
 
+use App\Models\Concerns\UsesManhlinhMotoConnection;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 
 class NguoiDung extends Authenticatable
 {
-    protected $connection = 'sqlsrv_manhlinh';
+    use UsesManhlinhMotoConnection;
 
     /** Bảng không có cột remember token. */
     protected $rememberTokenName = '';
@@ -23,8 +24,6 @@ class NguoiDung extends Authenticatable
     /** Vai trò ban đầu — danh mục thật ở bảng VaiTro (VaiTro::options()); dùng khi bảng chưa tạo. */
     public const VAI_TRO_MAC_DINH = [
         'admin' => 'Admin',
-        'dao_tao' => 'Đào Tạo',
-        'tuyen_sinh' => 'Tuyển Sinh',
         'it' => 'IT',
     ];
 

@@ -1,17 +1,23 @@
 <?php
 
+use App\Support\ManhlinhMoto;
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
 
-/** Lưu kết quả «Dò thông tin» local (sqlite), không dùng MANHLINH. */
+/**
+ * Kết quả «Dò thông tin» — lưu MANHLINH_MOTO, không ghi GPLX mô tô.
+ */
 return new class extends Migration
 {
-    protected $connection = 'sqlite';
+    public function getConnection(): ?string
+    {
+        return ManhlinhMoto::connection();
+    }
 
     public function up(): void
     {
-        $schema = Schema::connection($this->connection);
+        $schema = Schema::connection($this->getConnection());
         if ($schema->hasTable('HocVienDoThongTin')) {
             return;
         }
@@ -41,13 +47,14 @@ return new class extends Migration
             $table->boolean('KhopNgayCapGPLX')->nullable();
             $table->boolean('KhopNgayTrungTuyen')->nullable();
 
-            $table->unique('MaDK');
-            $table->index('SoCCCD');
+            $table->unique('MaDK', 'UX_HocVienDoThongTin_MaDK');
+            $table->index('SoCCCD', 'IX_HocVienDoThongTin_SoCCCD');
+            $table->index('KetLuan', 'IX_HocVienDoThongTin_KetLuan');
         });
     }
 
     public function down(): void
     {
-        Schema::connection($this->connection)->dropIfExists('HocVienDoThongTin');
+        Schema::connection($this->getConnection())->dropIfExists('HocVienDoThongTin');
     }
 };

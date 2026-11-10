@@ -2,12 +2,13 @@
 
 namespace App\Models\HeThong;
 
+use App\Models\Concerns\UsesManhlinhMotoConnection;
 use Illuminate\Database\Eloquent\Model;
 
 /** Vai trò (MaVaiTro) được dùng chức năng (MaChucNang = khoá lá của CayChucNang). Admin không cần dòng ở đây. */
 class PhanQuyen extends Model
 {
-    protected $connection = 'sqlsrv_manhlinh';
+    use UsesManhlinhMotoConnection;
 
     protected $table = 'PhanQuyen';
 

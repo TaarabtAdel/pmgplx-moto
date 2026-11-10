@@ -2,12 +2,13 @@
 
 namespace App\Models\HeThong;
 
+use App\Models\Concerns\UsesManhlinhMotoConnection;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class NguoiDungVaiTro extends Model
 {
-    protected $connection = 'sqlsrv_manhlinh';
+    use UsesManhlinhMotoConnection;
 
     protected $table = 'NguoiDungVaiTro';
 

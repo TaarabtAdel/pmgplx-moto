@@ -358,7 +358,7 @@
                     ' — ' + DTT.esc(hv.luu_luc) + '</div>' : '') +
                 '</td>';
         });
-        html += '</tr></tbody></table><div class="small text-muted mt-1">So kết quả dò với PMGPLX — lưu bên MANHLINH, không sửa PMGPLX.</div>';
+        html += '</tr></tbody></table><div class="small text-muted mt-1">So kết quả dò với PMGPLX — lưu MANHLINH_MOTO, không sửa GPLX mô tô.</div>';
         $('#dtt-so-sanh').html(html);
     }
 

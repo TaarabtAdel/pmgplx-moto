@@ -2,19 +2,20 @@
 
 namespace App\Models\DaoTao;
 
+use App\Models\Concerns\UsesManhlinhMotoConnection;
 use App\Models\HeThong\NguoiDung;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 /**
- * Kết quả «Dò thông tin» CCCD / GPLX của một học viên (MaDK bên PMGPLX), lưu trên MANHLINH.
+ * Kết quả «Dò thông tin» CCCD / GPLX của một học viên (MaDK bên PMGPLX), lưu trên MANHLINH_MOTO.
  * Hiện chỉ lưu đối chiếu từng trường với PMGPLX (cột Khop*: 1 khớp / 0 không khớp / NULL chưa dò)
  * và kết luận người dò chọn (KetLuan: ok / can_chinh — có khi chỉ cần khớp vài trường là chấp nhận);
  * các cột giá trị (HoTen, SoCCCD…) để dành, chưa ghi. NguoiLX / NguoiLX_HoSo (PMGPLX) giữ nguyên.
  */
 class HocVienDoThongTin extends Model
 {
-    protected $connection = 'sqlite';
+    use UsesManhlinhMotoConnection;
 
     protected $table = 'HocVienDoThongTin';
 

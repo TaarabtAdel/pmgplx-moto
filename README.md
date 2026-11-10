@@ -10,12 +10,17 @@ Bản tách từ `laravel/`, **chỉ** tab **PMGPLX-MOTO**:
 
 Hai SQL Server (giống `DB_DATABASE_4` / `DB_DATABASE_5` trong `laravel/.env`):
 
-| Connection Laravel | Database mặc định |
-|--------------------|-------------------|
-| `sqlsrv_moto`      | `GPLX_MOTO_BAN_MOI` |
-| `sqlsrv_moto_old`  | `GPLX_MOTO_BAN_CU`  |
+| Connection Laravel       | Database mặc định    |
+|--------------------------|----------------------|
+| `sqlsrv_moto`            | `GPLX_MOTO_BAN_MOI`  |
+| `sqlsrv_moto_old`        | `GPLX_MOTO_BAN_CU`   |
+| `sqlsrv_manhlinh_moto`   | `MANHLINH_MOTO`      |
 
-SQLite (file local) chỉ cho bảng `HocVienDoThongTin` (kết quả «Dò thông tin»), không bắt buộc nếu không dùng chức năng đó.
+`MANHLINH_MOTO` chỉ gồm bảng app mô tô (không copy MANHLINH ô tô): `HocVienDoThongTin`, `NguoiDung`, `VaiTro`, `PhanQuyen`, …
+
+```bash
+php artisan manhlinh-moto:setup
+```
 
 ## Cài đặt
 
@@ -24,7 +29,7 @@ cd laravel-moto
 cp .env.example .env
 php artisan key:generate
 composer install   # nếu chưa có vendor
-php artisan migrate   # sqlite HocVienDoThongTin
+php artisan manhlinh-moto:setup
 ```
 
 ## Chạy
@@ -48,7 +53,7 @@ docker compose -f docker-compose.yml -f docker-compose.moto.yml up -d --build ap
 
 # lần đầu (trong laravel-moto/.env có APP_KEY)
 docker compose -f docker-compose.yml -f docker-compose.moto.yml exec app-moto php artisan key:generate
-docker compose -f docker-compose.yml -f docker-compose.moto.yml exec app-moto php artisan migrate
+docker compose -f docker-compose.yml -f docker-compose.moto.yml exec app-moto php artisan manhlinh-moto:setup
 ```
 
 Mở **http://localhost:8081** → PMGPLX-MOTO.
