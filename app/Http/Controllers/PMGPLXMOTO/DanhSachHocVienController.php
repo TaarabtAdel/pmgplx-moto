@@ -152,10 +152,16 @@ class DanhSachHocVienController extends Controller
             return back()->withInput()->with('error', 'Đồng bộ thất bại: '.$e->getMessage());
         }
 
-        if (($result['inserted'] ?? 0) + ($result['updated'] ?? 0) === 0) {
+        $insertedHv = (int) ($result['inserted'] ?? 0);
+        $bciInserted = (int) ($result['bao_cao_i']['inserted'] ?? 0);
+
+        if ($insertedHv === 0 && $bciInserted === 0) {
+            $skipped = (int) ($result['skipped'] ?? 0);
             $message = $result['failed'] > 0
-                ? "Không có học viên nào được đồng bộ — {$result['failed']} lỗi."
-                : 'Không có học viên nào được đồng bộ.';
+                ? "Không có học viên mới được copy — {$result['failed']} lỗi."
+                : ($skipped > 0
+                    ? "Không copy học viên mới ({$skipped} đã có / không thuộc prefix — giống tool cũ bỏ qua)."
+                    : 'Không có học viên nào được copy.');
 
             return redirect()
                 ->route('pmgplxmoto.dm.hoc-vien.dong-bo.form', [
@@ -165,34 +171,40 @@ class DanhSachHocVienController extends Controller
                 ->with('error', $message);
         }
 
-        $request->session()->put(
-            DongBoHocVienBanCuService::SESSION_LAST_BATCH,
-            $service->buildSessionBatch($maKhNguon, $maKhDich, $result)
-        );
-
-        $synced = ($result['inserted'] ?? 0) + ($result['updated'] ?? 0);
-        $detail = [];
-        if (($result['inserted'] ?? 0) > 0) {
-            $detail[] = "thêm mới {$result['inserted']}";
+        if ($insertedHv > 0) {
+            $request->session()->put(
+                DongBoHocVienBanCuService::SESSION_LAST_BATCH,
+                $service->buildSessionBatch($maKhNguon, $maKhDich, $result)
+            );
         }
-        if (($result['updated'] ?? 0) > 0) {
-            $detail[] = "cập nhật {$result['updated']}";
+
+        $synced = $insertedHv;
+        $detail = [];
+        if ($synced > 0) {
+            $detail[] = "copy mới {$synced}";
+        }
+        if (($result['skipped'] ?? 0) > 0) {
+            $detail[] = 'bỏ qua '.($result['skipped']);
         }
         if (($result['failed'] ?? 0) > 0) {
             $detail[] = "lỗi {$result['failed']}";
-        }
-        if (! empty($result['khoa_hoc']['action']) && $result['khoa_hoc']['action'] !== 'unchanged') {
-            $detail[] = 'khóa học '.($result['khoa_hoc']['action'] === 'inserted' ? 'đã tạo' : 'đã cập nhật');
         }
         if (($result['bao_cao_i']['inserted'] ?? 0) > 0) {
             $detail[] = 'BaoCaoI +'.$result['bao_cao_i']['inserted'];
         }
 
-        $message = "Đã đồng bộ {$synced} học viên từ khóa {$maKhNguon} sang khóa {$maKhDich} trên bản cũ";
+        if ($synced > 0) {
+            $message = "Đã copy {$synced} học viên từ khóa {$maKhNguon} sang khóa {$maKhDich} trên bản cũ";
+        } else {
+            $message = "Đã copy phụ trợ (BaoCaoI…) cho khóa {$maKhDich}; không có học viên mới";
+        }
         if ($detail !== []) {
             $message .= ' ('.implode(', ', $detail).')';
         }
-        $message .= '. Gồm KhoaHoc, BaoCaoI (nếu có), NguoiLX, NguoiLX_HoSo, NguoiLXHS_GiayTo. Có thể dùng Khôi phục để xóa HV vừa đồng bộ.';
+        $message .= '. Luồng giống CopyDuLieuKhoaHoc (+ giấy tờ). HV đã có MaDK không ghi đè.';
+        if ($synced > 0) {
+            $message .= ' Dùng Khôi phục để xóa lô HV vừa copy.';
+        }
 
         return redirect()
             ->route('pmgplxmoto.dm.hoc-vien.dong-bo.form', [
@@ -237,13 +249,17 @@ class DanhSachHocVienController extends Controller
             return back()->withInput()->with('error', 'Test đồng bộ thất bại: '.$e->getMessage());
         }
 
-        if (($result['inserted'] ?? 0) + ($result['updated'] ?? 0) === 0) {
+        if (($result['inserted'] ?? 0) === 0) {
+            $reason = ($result['skipped'] ?? 0) > 0
+                ? 'Học viên đã có trên bản cũ hoặc không thuộc prefix — tool bỏ qua, không ghi đè.'
+                : 'Không thể test copy học viên này.';
+
             return redirect()
                 ->route('pmgplxmoto.dm.hoc-vien.dong-bo.form', [
                     'ma_kh_nguon' => $maKhNguon,
                     'ma_kh_dich' => $maKhDich,
                 ])
-                ->with('error', 'Không thể test đồng bộ học viên này.');
+                ->with('error', $reason);
         }
 
         $request->session()->put(
@@ -253,7 +269,6 @@ class DanhSachHocVienController extends Controller
 
         $hoTen = trim((string) ($result['ho_ten'] ?? $testStudent['ho_ten'] ?? ''));
         $targetMaDk = $result['target_ma_dk'] ?? $testStudent['ma_dk'] ?? '';
-        $action = ($result['updated'] ?? 0) > 0 && ($result['inserted'] ?? 0) === 0 ? 'cập nhật' : 'đồng bộ';
 
         return redirect()
             ->route('pmgplxmoto.dm.hoc-vien.dong-bo.form', [
@@ -262,7 +277,7 @@ class DanhSachHocVienController extends Controller
             ])
             ->with(
                 'success',
-                "Đã test {$action} 1 học viên ({$hoTen}): {$maDkNguon} → {$targetMaDk} trên bản cũ (kèm giấy tờ). Kiểm tra dữ liệu, sau đó dùng Khôi phục nếu cần xóa."
+                "Đã test copy 1 học viên ({$hoTen}): {$maDkNguon} → {$targetMaDk} trên bản cũ (kèm giấy tờ). Kiểm tra dữ liệu, sau đó dùng Khôi phục nếu cần xóa."
             );
     }
 

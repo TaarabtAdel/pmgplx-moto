@@ -66,7 +66,9 @@ class DongBoHocVienBanCuService
      */
     public function buildPreview(string $maKhoaHocNguon, ?string $maKhoaHocDich): array
     {
-        $students = $this->studentsInCourse($maKhoaHocNguon);
+        $students = $this->studentsEligibleForCopy($maKhoaHocNguon);
+        $oldPrefix = MaDkBanCu::prefixFromMaKhoaHoc($maKhoaHocNguon);
+        $newPrefix = $maKhoaHocDich ? MaDkBanCu::prefixFromMaKhoaHoc($maKhoaHocDich) : null;
 
         $source = [];
         $planned = [];
@@ -95,7 +97,7 @@ class DongBoHocVienBanCuService
             ];
 
             $mappedMaDk = $maKhoaHocDich
-                ? MaDkBanCu::mapFromSource((string) $row->MaDK, $maKhoaHocDich)
+                ? MaDkBanCu::mapFromSource((string) $row->MaDK, $maKhoaHocDich, $maKhoaHocNguon)
                 : null;
 
             if ($mappedMaDk) {
@@ -159,12 +161,15 @@ class DongBoHocVienBanCuService
                 'ten_kh_dich' => $khoaDich?->TenKH,
                 'ma_dk_prefix_nguon' => $prefixNguon,
                 'ma_dk_prefix_dich' => $prefixDich,
+                'copy_old_prefix' => $oldPrefix,
+                'copy_new_prefix' => $newPrefix,
                 'conflict_count' => count($conflicts),
+                'skip_count' => count($conflicts),
                 'update_count' => count($conflicts),
                 'conflicts' => $conflicts,
                 'syncable_count' => count(array_filter(
                     $planned,
-                    fn ($row) => ! empty($row['ma_dk'])
+                    fn ($row) => ! empty($row['ma_dk']) && empty($row['ton_tai'])
                 )),
                 'test_student' => $this->firstTestableStudent($planned),
             ],
@@ -178,7 +183,7 @@ class DongBoHocVienBanCuService
     public function firstTestableStudent(array $planned): ?array
     {
         foreach ($planned as $row) {
-            if (empty($row['ma_dk']) || empty($row['ma_dk_nguon'])) {
+            if (empty($row['ma_dk']) || empty($row['ma_dk_nguon']) || ! empty($row['ton_tai'])) {
                 continue;
             }
 
@@ -207,7 +212,7 @@ class DongBoHocVienBanCuService
      */
     public function sync(string $maKhoaHocNguon, string $maKhoaHocDich, ?string $onlySourceMaDk = null): array
     {
-        $students = $this->studentsInCourse($maKhoaHocNguon);
+        $students = $this->studentsEligibleForCopy($maKhoaHocNguon);
 
         if ($onlySourceMaDk !== null) {
             $students = $students
@@ -219,8 +224,10 @@ class DongBoHocVienBanCuService
             return ['inserted' => 0, 'updated' => 0, 'failed' => 0, 'total' => 0, 'skipped' => 0, 'inserted_ma_dks' => []];
         }
 
+        $oldPrefix = MaDkBanCu::prefixFromMaKhoaHoc($maKhoaHocNguon);
+
         $plannedMaDks = $students
-            ->map(fn ($row) => MaDkBanCu::mapFromSource((string) $row->MaDK, $maKhoaHocDich))
+            ->map(fn ($row) => MaDkBanCu::mapFromSource((string) $row->MaDK, $maKhoaHocDich, $maKhoaHocNguon))
             ->all();
 
         $existingMaDks = $this->findExistingMaDks($plannedMaDks);
@@ -241,30 +248,39 @@ class DongBoHocVienBanCuService
         $inserted = 0;
         $updated = 0;
         $failed = 0;
+        $skipped = 0;
         $syncedMaDks = [];
-        $khoaHocMeta = ['action' => 'unchanged'];
+        $khoaHocMeta = ['action' => 'exists', 'ma_kh' => $maKhoaHocDich];
         $baoCaoMeta = ['inserted' => 0, 'skipped' => 0];
 
         $oldDb->beginTransaction();
 
         try {
-            $khoaHocMeta = $this->syncKhoaHocBanCu($oldDb, $maKhoaHocNguon, $maKhoaHocDich);
+            $this->setTableConstraintChecking($oldDb, false);
+
+            $khoaHocMeta = $this->assertKhoaHocDichTrenBanCu($maKhoaHocNguon, $maKhoaHocDich);
             $khoaHocBanCu = KhoaHocOld::query()
                 ->where('MaKH', $maKhoaHocDich)
                 ->first(['MaKH', 'MaCSDT', 'MaSoGTVT']);
-
-            if ($khoaHocBanCu === null) {
-                throw new \InvalidArgumentException('Không tạo được khóa học đích trên bản cũ.');
-            }
 
             $baoCaoMeta = $this->syncBaoCaoIBanCu($oldDb, $maKhoaHocNguon, $maKhoaHocDich, $khoaHocBanCu);
 
             foreach ($students->values() as $index => $row) {
                 $sourceMaDk = $row->MaDK;
-                $targetMaDk = $plannedMaDks[$index] ?? MaDkBanCu::mapFromSource((string) $sourceMaDk, $maKhoaHocDich);
+                $targetMaDk = $plannedMaDks[$index] ?? MaDkBanCu::mapFromSource((string) $sourceMaDk, $maKhoaHocDich, $maKhoaHocNguon);
 
                 if (! $targetMaDk) {
                     $failed++;
+                    continue;
+                }
+
+                if (! MaDkBanCu::maDkMatchesCopyFilter((string) $sourceMaDk, $oldPrefix)) {
+                    $skipped++;
+                    continue;
+                }
+
+                if (isset($existingMaDks[$targetMaDk])) {
+                    $skipped++;
                     continue;
                 }
 
@@ -273,8 +289,6 @@ class DongBoHocVienBanCuService
                     $failed++;
                     continue;
                 }
-
-                $exists = isset($existingMaDks[$targetMaDk]);
 
                 $payloadNguoi = $this->onlyColumns($nguoi->getAttributes(), $colsNguoi);
                 $payloadNguoi['MaDK'] = $targetMaDk;
@@ -285,14 +299,6 @@ class DongBoHocVienBanCuService
                     $payloadHoSo = $this->onlyColumns($hoSo->getAttributes(), $colsHoSo);
                     $payloadHoSo['MaDK'] = $targetMaDk;
                     $payloadHoSo['MaKhoaHoc'] = $maKhoaHocDich;
-                    $payloadHoSo = $this->mapHoSoPayloadForBanCu($payloadHoSo);
-                    $payloadHoSo = $this->mapHoSoEmbeddedCodes(
-                        $payloadHoSo,
-                        (string) $sourceMaDk,
-                        $targetMaDk,
-                        $maKhoaHocNguon,
-                        $maKhoaHocDich
-                    );
                 }
 
                 [$payloadNguoi, $payloadHoSo] = DonViGtvtBanCu::applyFromKhoaHocDich(
@@ -305,10 +311,10 @@ class DongBoHocVienBanCuService
                     $this->applySourceDuongDanAnh($payloadHoSo, (string) $sourceMaDk);
                 }
 
-                $oldDb->table('NguoiLX')->updateOrInsert(['MaDK' => $targetMaDk], $payloadNguoi);
+                $oldDb->table('NguoiLX')->insert($payloadNguoi);
 
                 if ($payloadHoSo !== null) {
-                    $oldDb->table('NguoiLX_HoSo')->updateOrInsert(['MaDK' => $targetMaDk], $payloadHoSo);
+                    $oldDb->table('NguoiLX_HoSo')->insert($payloadHoSo);
                 }
 
                 $this->syncGiayToRows(
@@ -319,11 +325,17 @@ class DongBoHocVienBanCuService
                 );
 
                 $syncedMaDks[] = $targetMaDk;
-                $exists ? $updated++ : $inserted++;
+                $inserted++;
             }
+
+            $this->setTableConstraintChecking($oldDb, true);
 
             $oldDb->commit();
         } catch (\Throwable $e) {
+            try {
+                $this->setTableConstraintChecking($oldDb, true);
+            } catch (\Throwable) {
+            }
             $oldDb->rollBack();
 
             throw $e;
@@ -334,7 +346,7 @@ class DongBoHocVienBanCuService
             'updated' => $updated,
             'failed' => $failed,
             'total' => $students->count(),
-            'skipped' => 0,
+            'skipped' => $skipped,
             'inserted_ma_dks' => $syncedMaDks,
             'khoa_hoc' => $khoaHocMeta,
             'bao_cao_i' => $baoCaoMeta,
@@ -347,37 +359,50 @@ class DongBoHocVienBanCuService
     }
 
     /**
-     * Copy / cập nhật khóa học sang bản cũ (tương đương CopyKhoaHocMoto trong COPY_DATA_GPLX).
-     *
-     * @return array{action: 'inserted'|'updated'|'unchanged', ma_kh: string}
+     * @return Collection<int, object>
      */
-    private function syncKhoaHocBanCu($oldDb, string $maKhoaHocNguon, string $maKhoaHocDich): array
+    public function studentsEligibleForCopy(string $maKhoaHocNguon): Collection
     {
-        $source = KhoaHoc::query()->where('MaKH', $maKhoaHocNguon)->first();
-        if ($source === null) {
+        $oldPrefix = MaDkBanCu::prefixFromMaKhoaHoc($maKhoaHocNguon);
+
+        return $this->studentsInCourse($maKhoaHocNguon)
+            ->filter(fn ($row) => MaDkBanCu::maDkMatchesCopyFilter((string) $row->MaDK, $oldPrefix))
+            ->values();
+    }
+
+    /**
+     * @param  \Illuminate\Database\Connection  $oldDb
+     */
+    private function setTableConstraintChecking($oldDb, bool $check): void
+    {
+        $verb = $check ? 'CHECK' : 'NOCHECK';
+
+        foreach (['NguoiLX', 'NguoiLX_HoSo'] as $table) {
+            if (Schema::connection('sqlsrv_moto_old')->hasTable($table)) {
+                $oldDb->statement("ALTER TABLE [dbo].[{$table}] {$verb} CONSTRAINT ALL");
+            }
+        }
+    }
+
+    /**
+     * Khóa đích phải đã tạo sẵn trên bản cũ (chọn trên form — không insert KhoaHoc).
+     *
+     * @return array{action: 'exists', ma_kh: string}
+     */
+    private function assertKhoaHocDichTrenBanCu(string $maKhoaHocNguon, string $maKhoaHocDich): array
+    {
+        if (! KhoaHoc::query()->where('MaKH', $maKhoaHocNguon)->exists()) {
             throw new \InvalidArgumentException('Mã khóa học nguồn không tồn tại trên bản mới.');
         }
 
-        $cols = $this->commonColumns('KhoaHoc');
-        $payload = $this->onlyColumns($source->getAttributes(), $cols);
-        $payload['MaKH'] = $maKhoaHocDich;
-
-        $existing = KhoaHocOld::query()->where('MaKH', $maKhoaHocDich)->first(['MaKH', 'MaCSDT', 'MaSoGTVT']);
-        $prefixDich = MaDkBanCu::prefixFromMaKhoaHoc($maKhoaHocDich);
-
-        if ($existing !== null) {
-            $payload['MaCSDT'] = $existing->MaCSDT ?? $prefixDich;
-            $payload['MaSoGTVT'] = $existing->MaSoGTVT ?? substr($prefixDich, 0, 2);
-            $oldDb->table('KhoaHoc')->updateOrInsert(['MaKH' => $maKhoaHocDich], $payload);
-
-            return ['action' => 'updated', 'ma_kh' => $maKhoaHocDich];
+        $existing = KhoaHocOld::query()->where('MaKH', $maKhoaHocDich)->first(['MaKH']);
+        if ($existing === null) {
+            throw new \InvalidArgumentException(
+                "Khóa đích {$maKhoaHocDich} chưa có trên bản cũ. Tạo khóa trên PM cũ trước, rồi chọn lại mã khóa đích."
+            );
         }
 
-        $payload['MaCSDT'] = $prefixDich;
-        $payload['MaSoGTVT'] = strlen($prefixDich) >= 2 ? substr($prefixDich, 0, 2) : ($source->MaSoGTVT ?? $prefixDich);
-        $oldDb->table('KhoaHoc')->insert($payload);
-
-        return ['action' => 'inserted', 'ma_kh' => $maKhoaHocDich];
+        return ['action' => 'exists', 'ma_kh' => $maKhoaHocDich];
     }
 
     /**
@@ -502,7 +527,7 @@ class DongBoHocVienBanCuService
             'ma_kh_nguon' => $maKhoaHocNguon,
             'ma_kh_dich' => $maKhoaHocDich,
             'ma_dks' => $result['inserted_ma_dks'] ?? [],
-            'count' => (int) (($result['inserted'] ?? 0) + ($result['updated'] ?? 0)),
+            'count' => (int) ($result['inserted'] ?? 0),
             'synced_at' => now()->format('d/m/Y H:i:s'),
             'is_test' => $isTest,
             'ho_ten' => $result['ho_ten'] ?? null,
@@ -565,23 +590,12 @@ class DongBoHocVienBanCuService
         string $maKhoaHocNguon,
         string $maKhoaHocDich
     ): array {
-        if (array_key_exists('GhiChu', $payload) && $payload['GhiChu'] !== null && $payload['GhiChu'] !== '') {
-            $ghiChu = (string) $payload['GhiChu'];
-            if (! self::coVeDuongDanAnh($ghiChu)) {
-                $payload['GhiChu'] = str_replace(
-                    [$sourceMaDk, $maKhoaHocNguon],
-                    [$targetMaDk, $maKhoaHocDich],
-                    $ghiChu
-                );
-            }
-        }
-
+        // COPY_DATA_GPLX: hs.DuongDanAnh, hs.GhiChu, … copy nguyên từ DB nguồn — không đổi mã trong path/ghi chú.
         return $payload;
     }
 
     /**
-     * `DuongDanAnh` / tên file ảnh luôn lấy từ bản mới (MaDK 44016…, thư mục khóa 44016…),
-     * không đổi theo MaDK / mã khóa đích 45003… — bước cuối trước khi ghi bản cũ.
+     * Giữ `DuongDanAnh` y như bản mới (COPY_DATA_GPLX: hs.DuongDanAnh từ nguồn, không remap prefix).
      *
      * @param  array<string, mixed>  $payloadHoSo
      */
@@ -603,15 +617,6 @@ class DongBoHocVienBanCuService
         $payloadHoSo['DuongDanAnh'] = $path;
     }
 
-    private static function coVeDuongDanAnh(string $value): bool
-    {
-        if (preg_match('/\.(jp2|jpe?g|png|bmp|gif|tif{1,2})$/i', $value)) {
-            return true;
-        }
-
-        return str_contains($value, 'ANH GPLX') || str_contains($value, 'ANH_GPLX');
-    }
-
     /**
      * @param  \Illuminate\Support\Collection<int, object>  $rows
      * @param  list<string>  $columns
@@ -627,10 +632,16 @@ class DongBoHocVienBanCuService
                 continue;
             }
 
-            $oldDb->table('NguoiLXHS_GiayTo')->updateOrInsert(
-                ['MaDK' => $targetMaDk, 'MaGT' => $maGt],
-                $payload
-            );
+            $exists = $oldDb->table('NguoiLXHS_GiayTo')
+                ->where('MaDK', $targetMaDk)
+                ->where('MaGT', $maGt)
+                ->exists();
+
+            if ($exists) {
+                continue;
+            }
+
+            $oldDb->table('NguoiLXHS_GiayTo')->insert($payload);
         }
     }
 

@@ -125,9 +125,9 @@
         $sourceRows = $preview['source'] ?? [];
         $plannedRows = $preview['planned'] ?? [];
         $conflictCount = (int) ($meta['conflict_count'] ?? 0);
-        $updateCount = (int) ($meta['update_count'] ?? $conflictCount);
-        $syncableCount = (int) ($meta['syncable_count'] ?? count($sourceRows));
-        $canSync = $maKhNguon !== '' && $maKhDich !== '' && $syncableCount > 0;
+        $skipCount = (int) ($meta['skip_count'] ?? $meta['update_count'] ?? $conflictCount);
+        $syncableCount = (int) ($meta['syncable_count'] ?? max(0, count($sourceRows) - $conflictCount));
+        $canSync = $maKhNguon !== '' && $maKhDich !== '' && (count($sourceRows) > 0);
         $lastBatch = $lastBatch ?? null;
         $testStudent = $meta['test_student'] ?? null;
         $canTest = $maKhDich !== '' && is_array($testStudent) && ! empty($testStudent['ma_dk_nguon']);
@@ -186,13 +186,13 @@
                     Chọn <strong>Khóa học đích</strong> (phần mềm cũ), bấm <strong>Xem trước</strong> — bảng bên phải hiện mã ĐK dự kiến (thay tiền tố mã khóa, phần số sau gộp liền).
                 </li>
                 <li class="mb-2">
-                    Kiểm tra dòng vàng (<strong>Đã tồn tại</strong>): những mã ĐK đã có trên bản cũ sẽ được <strong>cập nhật</strong> khi đồng bộ lại; dòng không vàng là học viên sẽ được thêm mới.
+                    Kiểm tra dòng vàng (<strong>Đã tồn tại</strong>): giống tool COPY_DATA_GPLX — <strong>bỏ qua</strong>, không ghi đè; chỉ <strong>insert</strong> mã ĐK chưa có trên bản cũ (prefix <code>OldPrefix-</code> từ khóa nguồn).
                 </li>
                 <li class="mb-2">
                     (Khuyến nghị) Bấm <strong>Test 1 học viên</strong> để thử trước — nếu không ổn, dùng <strong>Khôi phục</strong> để xóa trên bản cũ.
                 </li>
                 <li class="mb-2">
-                    Bấm <strong>Xác nhận đồng bộ sang bản cũ</strong> để đưa toàn bộ học viên sang phần mềm cũ (thêm mới hoặc cập nhật nếu đã có).
+                    Bấm <strong>Xác nhận đồng bộ sang bản cũ</strong> — copy BaoCaoI (nếu có), học viên mới vào khóa đích; rollback nếu lỗi.
                 </li>
                 <li class="mb-2">
                     Sau đồng bộ: cập nhật <strong>kết quả đào tạo</strong> trên bản cũ
@@ -210,11 +210,11 @@
                     <li><strong>NguoiLX_GPLX</strong> — GPLX đã có (nếu có)</li>
                     <li><strong>NguoiLXHS_GiayTo</strong> — giấy tờ kèm hồ sơ (đơn, CMT, ảnh…)</li>
                 </ul>
-                Chức năng này copy sang bản cũ <strong>KhoaHoc</strong> (tạo/cập nhật theo mã khóa đích),
+                Chức năng này copy học viên vào <strong>khóa đích đã có sẵn</strong> trên bản cũ (không tạo <strong>KhoaHoc</strong>),
                 <strong>BaoCaoI</strong> (nếu có, bỏ qua mã đã tồn tại) và
                 <strong>NguoiLX + NguoiLX_HoSo + NguoiLXHS_GiayTo</strong> (giống COPY_DATA_GPLX, thêm giấy tờ).
-                <strong>DuongDanAnh</strong> (thư mục + tên file, vd. <code>44016K260001\44016-….jp2</code>) giữ nguyên như bản mới — không đổi theo Mã ĐK đích <code>45003-…</code>.
-                (mã ĐK và mã khóa được map sang khóa đích; giấy tờ upsert theo khóa <code>MaDK</code> + <code>MaGT</code>).
+                <strong>Ảnh / đường dẫn</strong> (giống CopyDuLieuKhoaHoc): <code>DuongDanAnh</code>, <code>GhiChu</code>, <code>ChatLuongAnh</code>… copy <strong>nguyên</strong> từ bản mới (vd. thư mục <code>44016…</code>, file <code>44016-….jp2</code>) — PM cũ vẫn trỏ cùng thư mục ảnh như khi tool COPY_DATA_GPLX chạy.
+                (mã ĐK và mã khóa được map sang khóa đích; giấy tờ insert theo <code>MaDK</code> + <code>MaGT</code>).
                 <strong>Đơn vị cấp GPLX</strong> (<code>DonViCapGPLXDaCo</code>) trên bản cũ: nếu <code>NgayTTGPLXDaCo</code> sau 01/03/2025 thì ghi <code>00</code>;
                 trước mốc đó lấy <strong>2 số đầu của <code>SoGPLXDaCo</code></strong> (vd. <code>450190001488</code> → <code>45</code>, <code>440155002955</code> → <code>44</code>).
                 <strong>Chưa</strong> đưa <code>NguoiLX_GPLX</code>
@@ -223,7 +223,7 @@
                 nếu bản cũ chưa có KQ hoặc cần sửa đồng loạt, dùng bước <strong>Cập nhật KQĐT bản cũ</strong> sau đồng bộ.
             </div>
             <div class="alert alert-warning mb-0">
-                <strong>Lưu ý:</strong> Nếu <strong>khóa đích</strong> chưa có trên bản cũ, lần đồng bộ sẽ <strong>tự copy khóa học</strong> từ bản mới (mã khóa = đích; <code>MaCSDT</code>/<code>MaSoGTVT</code> theo tiền tố mã khóa đích hoặc giữ từ khóa đã có).
+                <strong>Lưu ý:</strong> Phải <strong>tạo khóa học trên PM cũ</strong> trước, rồi chọn đúng <strong>mã khóa đích</strong> ở form. Đồng bộ sẽ dừng và báo lỗi nếu khóa đích chưa tồn tại trên bản cũ.
             </div>
         </div>
     </div>
@@ -396,7 +396,7 @@
                                                     @if (empty($row['ton_tai']))
                                                         <span class="text-success font-weight-bold" title="Chưa tồn tại trên bản cũ — sẽ thêm mới">+</span>
                                                     @else
-                                                        <span class="text-warning font-weight-bold" title="Đã tồn tại — sẽ cập nhật">↻</span>
+                                                        <span class="text-warning font-weight-bold" title="Đã tồn tại — sẽ bỏ qua khi copy">⊘</span>
                                                     @endif
                                                     {{ $index + 1 }}
                                                 </td>
@@ -446,10 +446,10 @@
             </div>
         </div>
 
-        @if ($maKhDich !== '' && count($sourceRows) > 0 && $updateCount > 0)
+        @if ($maKhDich !== '' && count($sourceRows) > 0 && $skipCount > 0)
             <div class="card card-panel">
                 <div class="card-body text-muted">
-                    {{ number_format($updateCount) }} học viên đã có mã ĐK trên bản cũ — sẽ được <strong>cập nhật</strong> (kèm giấy tờ) khi đồng bộ.
+                    {{ number_format($skipCount) }} học viên đã có mã ĐK trên bản cũ — sẽ <strong>bỏ qua</strong> (không ghi đè), giống tool COPY_DATA_GPLX.
                 </div>
             </div>
         @endif
@@ -473,7 +473,7 @@
 
                         @if ($canSync)
                             <form method="POST" action="{{ route('pmgplxmoto.dm.hoc-vien.dong-bo.store') }}" class="mb-2 mr-3"
-                                  onsubmit="return confirm('Đồng bộ {{ number_format($syncableCount) }} học viên từ khóa {{ $maKhNguon }} sang khóa {{ $maKhDich }} trên bản cũ?{{ $updateCount > 0 ? '\n'.number_format($updateCount).' học viên sẽ được cập nhật.' : '' }}');">
+                                  onsubmit="return confirm('Copy khóa {{ $maKhNguon }} → {{ $maKhDich }} trên bản cũ?\nInsert mới: {{ number_format($syncableCount) }} HV{{ $skipCount > 0 ? '\nBỏ qua (đã có): '.number_format($skipCount) : '' }}');">
                                 @csrf
                                 <input type="hidden" name="ma_kh_nguon" value="{{ $maKhNguon }}">
                                 <input type="hidden" name="ma_kh_dich" value="{{ $maKhDich }}">
@@ -494,8 +494,8 @@
                     @elseif ($canSync)
                         <div class="small text-muted mt-1">
                             Mã ĐK: thay tiền tố khóa, giữ phần ngày-thứ tự (vd. <code>45003-20260831-000002</code>).
-                            @if ($updateCount > 0)
-                                Dòng vàng = đã có trên bản cũ, sẽ cập nhật kèm giấy tờ.
+                            @if ($skipCount > 0)
+                                Dòng vàng = đã có trên bản cũ, sẽ bỏ qua khi copy.
                             @endif
                         </div>
                     @endif
