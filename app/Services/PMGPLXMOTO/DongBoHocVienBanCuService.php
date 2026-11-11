@@ -219,14 +219,6 @@ class DongBoHocVienBanCuService
             return ['inserted' => 0, 'updated' => 0, 'failed' => 0, 'total' => 0, 'skipped' => 0, 'inserted_ma_dks' => []];
         }
 
-        $khoaHocBanCu = KhoaHocOld::query()
-            ->where('MaKH', $maKhoaHocDich)
-            ->first(['MaKH', 'MaCSDT', 'MaSoGTVT']);
-
-        if ($khoaHocBanCu === null) {
-            throw new \InvalidArgumentException('Mã khóa học đích không tồn tại trên bản cũ.');
-        }
-
         $plannedMaDks = $students
             ->map(fn ($row) => MaDkBanCu::mapFromSource((string) $row->MaDK, $maKhoaHocDich))
             ->all();
@@ -250,10 +242,23 @@ class DongBoHocVienBanCuService
         $updated = 0;
         $failed = 0;
         $syncedMaDks = [];
+        $khoaHocMeta = ['action' => 'unchanged'];
+        $baoCaoMeta = ['inserted' => 0, 'skipped' => 0];
 
         $oldDb->beginTransaction();
 
         try {
+            $khoaHocMeta = $this->syncKhoaHocBanCu($oldDb, $maKhoaHocNguon, $maKhoaHocDich);
+            $khoaHocBanCu = KhoaHocOld::query()
+                ->where('MaKH', $maKhoaHocDich)
+                ->first(['MaKH', 'MaCSDT', 'MaSoGTVT']);
+
+            if ($khoaHocBanCu === null) {
+                throw new \InvalidArgumentException('Không tạo được khóa học đích trên bản cũ.');
+            }
+
+            $baoCaoMeta = $this->syncBaoCaoIBanCu($oldDb, $maKhoaHocNguon, $maKhoaHocDich, $khoaHocBanCu);
+
             foreach ($students->values() as $index => $row) {
                 $sourceMaDk = $row->MaDK;
                 $targetMaDk = $plannedMaDks[$index] ?? MaDkBanCu::mapFromSource((string) $sourceMaDk, $maKhoaHocDich);
@@ -331,12 +336,101 @@ class DongBoHocVienBanCuService
             'total' => $students->count(),
             'skipped' => 0,
             'inserted_ma_dks' => $syncedMaDks,
+            'khoa_hoc' => $khoaHocMeta,
+            'bao_cao_i' => $baoCaoMeta,
             'source_ma_dk' => $onlySourceMaDk ?? ($students->first()->MaDK ?? null),
             'target_ma_dk' => $syncedMaDks[0] ?? null,
             'ho_ten' => $students->isEmpty()
                 ? ''
                 : trim((string) ($students->first()->HoVaTen ?: trim(($students->first()->HoDemNLX ?? '').' '.($students->first()->TenNLX ?? '')))),
         ];
+    }
+
+    /**
+     * Copy / cập nhật khóa học sang bản cũ (tương đương CopyKhoaHocMoto trong COPY_DATA_GPLX).
+     *
+     * @return array{action: 'inserted'|'updated'|'unchanged', ma_kh: string}
+     */
+    private function syncKhoaHocBanCu($oldDb, string $maKhoaHocNguon, string $maKhoaHocDich): array
+    {
+        $source = KhoaHoc::query()->where('MaKH', $maKhoaHocNguon)->first();
+        if ($source === null) {
+            throw new \InvalidArgumentException('Mã khóa học nguồn không tồn tại trên bản mới.');
+        }
+
+        $cols = $this->commonColumns('KhoaHoc');
+        $payload = $this->onlyColumns($source->getAttributes(), $cols);
+        $payload['MaKH'] = $maKhoaHocDich;
+
+        $existing = KhoaHocOld::query()->where('MaKH', $maKhoaHocDich)->first(['MaKH', 'MaCSDT', 'MaSoGTVT']);
+        $prefixDich = MaDkBanCu::prefixFromMaKhoaHoc($maKhoaHocDich);
+
+        if ($existing !== null) {
+            $payload['MaCSDT'] = $existing->MaCSDT ?? $prefixDich;
+            $payload['MaSoGTVT'] = $existing->MaSoGTVT ?? substr($prefixDich, 0, 2);
+            $oldDb->table('KhoaHoc')->updateOrInsert(['MaKH' => $maKhoaHocDich], $payload);
+
+            return ['action' => 'updated', 'ma_kh' => $maKhoaHocDich];
+        }
+
+        $payload['MaCSDT'] = $prefixDich;
+        $payload['MaSoGTVT'] = strlen($prefixDich) >= 2 ? substr($prefixDich, 0, 2) : ($source->MaSoGTVT ?? $prefixDich);
+        $oldDb->table('KhoaHoc')->insert($payload);
+
+        return ['action' => 'inserted', 'ma_kh' => $maKhoaHocDich];
+    }
+
+    /**
+     * Copy báo cáo I theo khóa (CopyBaoCaoI — bỏ qua MaBCI đã tồn tại trên bản cũ).
+     *
+     * @return array{inserted: int, skipped: int}
+     */
+    private function syncBaoCaoIBanCu($oldDb, string $maKhoaHocNguon, string $maKhoaHocDich, object $khoaHocBanCu): array
+    {
+        if (! Schema::connection('sqlsrv_moto')->hasTable('BaoCaoI')
+            || ! Schema::connection('sqlsrv_moto_old')->hasTable('BaoCaoI')) {
+            return ['inserted' => 0, 'skipped' => 0];
+        }
+
+        $cols = $this->commonColumns('BaoCaoI');
+        if ($cols === []) {
+            return ['inserted' => 0, 'skipped' => 0];
+        }
+
+        $rows = DB::connection('sqlsrv_moto')
+            ->table('BaoCaoI')
+            ->where('MaKH', $maKhoaHocNguon)
+            ->get();
+
+        $maCsdt = trim((string) ($khoaHocBanCu->MaCSDT ?? MaDkBanCu::prefixFromMaKhoaHoc($maKhoaHocDich)));
+        $inserted = 0;
+        $skipped = 0;
+
+        foreach ($rows as $row) {
+            $maBci = $row->MaBCI ?? null;
+            if ($maBci === null || $maBci === '') {
+                continue;
+            }
+
+            $exists = $oldDb->table('BaoCaoI')->where('MaBCI', $maBci)->exists();
+            if ($exists) {
+                $skipped++;
+
+                continue;
+            }
+
+            $payload = $this->onlyColumns((array) $row, $cols);
+            $payload['MaBCI'] = $maBci;
+            $payload['MaKH'] = $maKhoaHocDich;
+            if (array_key_exists('MaCSDT', $payload)) {
+                $payload['MaCSDT'] = $maCsdt !== '' ? $maCsdt : $payload['MaCSDT'];
+            }
+
+            $oldDb->table('BaoCaoI')->insert($payload);
+            $inserted++;
+        }
+
+        return ['inserted' => $inserted, 'skipped' => $skipped];
     }
 
     /**

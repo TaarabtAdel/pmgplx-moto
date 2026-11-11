@@ -210,7 +210,9 @@
                     <li><strong>NguoiLX_GPLX</strong> — GPLX đã có (nếu có)</li>
                     <li><strong>NguoiLXHS_GiayTo</strong> — giấy tờ kèm hồ sơ (đơn, CMT, ảnh…)</li>
                 </ul>
-                Chức năng này copy sang bản cũ <strong>3 bảng: NguoiLX + NguoiLX_HoSo + NguoiLXHS_GiayTo</strong>.
+                Chức năng này copy sang bản cũ <strong>KhoaHoc</strong> (tạo/cập nhật theo mã khóa đích),
+                <strong>BaoCaoI</strong> (nếu có, bỏ qua mã đã tồn tại) và
+                <strong>NguoiLX + NguoiLX_HoSo + NguoiLXHS_GiayTo</strong> (giống COPY_DATA_GPLX, thêm giấy tờ).
                 <strong>DuongDanAnh</strong> (thư mục + tên file, vd. <code>44016K260001\44016-….jp2</code>) giữ nguyên như bản mới — không đổi theo Mã ĐK đích <code>45003-…</code>.
                 (mã ĐK và mã khóa được map sang khóa đích; giấy tờ upsert theo khóa <code>MaDK</code> + <code>MaGT</code>).
                 <strong>Đơn vị cấp GPLX</strong> (<code>DonViCapGPLXDaCo</code>) trên bản cũ: nếu <code>NgayTTGPLXDaCo</code> sau 01/03/2025 thì ghi <code>00</code>;
@@ -221,7 +223,7 @@
                 nếu bản cũ chưa có KQ hoặc cần sửa đồng loạt, dùng bước <strong>Cập nhật KQĐT bản cũ</strong> sau đồng bộ.
             </div>
             <div class="alert alert-warning mb-0">
-                <strong>Lưu ý:</strong> Nếu bên <strong>Khóa học đích</strong> chưa có khóa học cần đưa qua thì cần <strong>tạo khóa học trên phần mềm cũ trước</strong>, sau đó quay lại chọn khóa đích và xem trước.
+                <strong>Lưu ý:</strong> Nếu <strong>khóa đích</strong> chưa có trên bản cũ, lần đồng bộ sẽ <strong>tự copy khóa học</strong> từ bản mới (mã khóa = đích; <code>MaCSDT</code>/<code>MaSoGTVT</code> theo tiền tố mã khóa đích hoặc giữ từ khóa đã có).
             </div>
         </div>
     </div>

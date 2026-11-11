@@ -181,12 +181,18 @@ class DanhSachHocVienController extends Controller
         if (($result['failed'] ?? 0) > 0) {
             $detail[] = "lỗi {$result['failed']}";
         }
+        if (! empty($result['khoa_hoc']['action']) && $result['khoa_hoc']['action'] !== 'unchanged') {
+            $detail[] = 'khóa học '.($result['khoa_hoc']['action'] === 'inserted' ? 'đã tạo' : 'đã cập nhật');
+        }
+        if (($result['bao_cao_i']['inserted'] ?? 0) > 0) {
+            $detail[] = 'BaoCaoI +'.$result['bao_cao_i']['inserted'];
+        }
 
         $message = "Đã đồng bộ {$synced} học viên từ khóa {$maKhNguon} sang khóa {$maKhDich} trên bản cũ";
         if ($detail !== []) {
             $message .= ' ('.implode(', ', $detail).')';
         }
-        $message .= '. Bao gồm NguoiLX, NguoiLX_HoSo và NguoiLXHS_GiayTo. Có thể dùng Khôi phục để xóa lại trên bản cũ.';
+        $message .= '. Gồm KhoaHoc, BaoCaoI (nếu có), NguoiLX, NguoiLX_HoSo, NguoiLXHS_GiayTo. Có thể dùng Khôi phục để xóa HV vừa đồng bộ.';
 
         return redirect()
             ->route('pmgplxmoto.dm.hoc-vien.dong-bo.form', [
