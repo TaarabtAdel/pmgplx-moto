@@ -5,6 +5,7 @@ use App\Http\Controllers\PMGPLXMOTO\DanhSachHocVienController;
 use App\Http\Controllers\PMGPLXMOTO\DanhSachKhoaHocController;
 use App\Http\Controllers\PMGPLXMOTO\DanhSachXeController;
 use App\Http\Controllers\PMGPLXMOTO\DoThongTinHocVienController;
+use App\Http\Controllers\PMGPLXMOTO\KetQuaDaoTaoBanCuController;
 use App\Http\Controllers\PMGPLXMOTO\NhapHocVienTuFileController;
 use App\Http\Controllers\PMGPLXMOTOOLD\DanhSachHocVienController as MotoOldDanhSachHocVienController;
 use Illuminate\Support\Facades\Route;
@@ -45,6 +46,15 @@ Route::prefix('pmgplxmoto')->name('pmgplxmoto.')->group(function (): void {
         ->name('dm.hoc-vien.dong-bo.khoi-phuc');
     Route::post('/danh-muc/hoc-vien/dong-bo-loc', [DanhSachHocVienController::class, 'dongBo'])
         ->name('dm.hoc-vien.dong-bo');
+
+    Route::get('/danh-muc/hoc-vien/cap-nhat-ket-qua-dao-tao-ban-cu', [KetQuaDaoTaoBanCuController::class, 'capNhatForm'])
+        ->name('dm.hoc-vien.cap-nhat-kqtb.form');
+    Route::post('/danh-muc/hoc-vien/cap-nhat-ket-qua-dao-tao-ban-cu', [KetQuaDaoTaoBanCuController::class, 'capNhatStore'])
+        ->name('dm.hoc-vien.cap-nhat-kqtb.store');
+    Route::post('/danh-muc/hoc-vien/cap-nhat-ket-qua-dao-tao-ban-cu/copy-tu-moi', [KetQuaDaoTaoBanCuController::class, 'copyFromNew'])
+        ->name('dm.hoc-vien.cap-nhat-kqtb.copy-tu-moi');
+    Route::get('/danh-muc/hoc-vien/ket-qua-khoa-hoc-ban-cu', [KetQuaDaoTaoBanCuController::class, 'danhSachForm'])
+        ->name('dm.hoc-vien.ket-qua-khoa-hoc.form');
 
     Route::get('/danh-muc/hoc-vien/nhap-tu-file', [NhapHocVienTuFileController::class, 'create'])
         ->name('dm.hoc-vien.nhap-file.create');

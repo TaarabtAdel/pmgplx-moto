@@ -58,13 +58,6 @@ Mở **http://localhost:8081** → PMGPLX-MOTO.
 
 Biến `DB_*` trong container được set bởi `docker-compose.moto.yml` (`GPLX_MOTO_BAN_MOI` / `GPLX_MOTO_BAN_CU`). File `laravel-moto/.env` vẫn cần `APP_KEY` và tuỳ chọn Google Vision (dò thông tin).
 
-## Đồng bộ với `laravel/`
+## Tách khỏi `laravel/`
 
-Khi sửa chức năng MOTO trên `laravel/`, có thể rsync lại phần liên quan:
-
-- `app/Http/Controllers/PMGPLXMOTO*`
-- `app/Models/PMGPLXMOTO*`
-- `app/Services/PMGPLXMOTO`
-- `app/Support/PMGPLX/{MaDkBanCu,DonVi*,SoGiay*}`
-- `resources/views/PMGPLXMOTO*`
-- `routes/pmgplxmoto.php`
+PMGPLX-MOTO chỉ còn trong repo/thư mục `laravel-moto/` (đã gỡ khỏi `laravel/`). Sửa mô tô tại đây, không rsync từ `laravel/`.

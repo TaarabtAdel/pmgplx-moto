@@ -66,6 +66,10 @@
                        class="btn btn-sm btn-info ml-1">
                         Đồng Bộ Qua Bản Cũ
                     </a>
+                    <a href="{{ route('pmgplxmoto.dm.hoc-vien.cap-nhat-kqtb.form') }}"
+                       class="btn btn-sm btn-outline-info ml-1" title="Publish KQTN A1 — bản cũ">
+                        KQĐT bản cũ
+                    </a>
                     <a href="{{ route('pmgplxmotoold.dm.hoc-vien.index') }}" class="btn btn-sm btn-outline-secondary ml-1" target="_blank">
                         Xem bản cũ
                     </a>

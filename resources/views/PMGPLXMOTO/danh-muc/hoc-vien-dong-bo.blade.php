@@ -157,6 +157,10 @@
                    class="btn btn-outline-secondary btn-sm mb-2 mr-2" target="_blank">
                     Xem trên bản cũ
                 </a>
+                <a href="{{ route('pmgplxmoto.dm.hoc-vien.cap-nhat-kqtb.form', ['ma_khoa_hoc' => $lastBatch['ma_kh_dich'] ?? '', 'ma_kh_nguon' => $lastBatch['ma_kh_nguon'] ?? '']) }}"
+                   class="btn btn-info btn-sm mb-2 mr-2">
+                    Cập nhật KQĐT bản cũ
+                </a>
                 <form method="POST" action="{{ route('pmgplxmoto.dm.hoc-vien.dong-bo.khoi-phuc') }}" class="mb-2"
                       onsubmit="return confirm('Khôi phục sẽ xóa {{ number_format((int) ($lastBatch['count'] ?? 0)) }} học viên vừa đồng bộ khỏi bản cũ. Tiếp tục?');">
                     @csrf
@@ -190,6 +194,13 @@
                 <li class="mb-2">
                     Bấm <strong>Xác nhận đồng bộ sang bản cũ</strong> để đưa toàn bộ học viên sang phần mềm cũ (thêm mới hoặc cập nhật nếu đã có).
                 </li>
+                <li class="mb-2">
+                    Sau đồng bộ: cập nhật <strong>kết quả đào tạo</strong> trên bản cũ
+                    (<code>TGBatDau</code>, <code>TGKetThuc</code>, <code>KetLuanCSDT</code>) —
+                    <a href="{{ route('pmgplxmoto.dm.hoc-vien.cap-nhat-kqtb.form', array_filter(['ma_khoa_hoc' => $maKhDich, 'ma_kh_nguon' => $maKhNguon])) }}">Cập nhật KQĐT bản cũ</a>
+                    hoặc <a href="{{ route('pmgplxmoto.dm.hoc-vien.ket-qua-khoa-hoc.form', array_filter(['ma_khoa_hoc' => $maKhDich])) }}">Xem lại KQĐT khóa</a>
+                    (tương đương Publish_KQTN_A1).
+                </li>
             </ol>
             <div class="alert alert-info mb-3">
                 <strong>Phạm vi dữ liệu mỗi học viên</strong> (cả phần mềm mới và cũ đều có cùng các bảng sau, liên kết qua <code>MaDK</code>):
@@ -205,8 +216,9 @@
                 <strong>Đơn vị cấp GPLX</strong> (<code>DonViCapGPLXDaCo</code>) trên bản cũ: nếu <code>NgayTTGPLXDaCo</code> sau 01/03/2025 thì ghi <code>00</code>;
                 trước mốc đó lấy <strong>2 số đầu của <code>SoGPLXDaCo</code></strong> (vd. <code>450190001488</code> → <code>45</code>, <code>440155002955</code> → <code>44</code>).
                 <strong>Chưa</strong> đưa <code>NguoiLX_GPLX</code>
-                và các cột chỉ có trên bản mới (điểm thi, kết quả DAT…).
-                Đủ để hiện danh sách học viên và giấy tờ trên bản cũ; chưa đủ nếu cần xem/sửa GPLX cũ trong phần mềm cũ.
+                và các cột điểm thi chỉ có trên bản mới.
+                Các cột <code>TGBatDau</code>, <code>TGKetThuc</code>, <code>KetLuanCSDT</code> (nếu có trên cả hai DB) được copy khi đồng bộ;
+                nếu bản cũ chưa có KQ hoặc cần sửa đồng loạt, dùng bước <strong>Cập nhật KQĐT bản cũ</strong> sau đồng bộ.
             </div>
             <div class="alert alert-warning mb-0">
                 <strong>Lưu ý:</strong> Nếu bên <strong>Khóa học đích</strong> chưa có khóa học cần đưa qua thì cần <strong>tạo khóa học trên phần mềm cũ trước</strong>, sau đó quay lại chọn khóa đích và xem trước.
