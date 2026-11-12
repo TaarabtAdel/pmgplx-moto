@@ -256,6 +256,8 @@
             </div>
             <div class="alert alert-warning mb-0">
                 <strong>Lưu ý:</strong> Nếu bên <strong>Khóa học đích</strong> chưa có khóa học cần đưa qua thì cần <strong>tạo khóa học trên phần mềm cũ trước</strong>, sau đó quay lại chọn khóa đích và xem trước.
+                DB đích phải là <strong>cùng catalog</strong> với cấu hình <code>DB_DATABASE_2</code> / tool COPY — nếu COPY từng báo <em>truncated</em>, chạy một lần script
+                <code>PUBLISH_DATA_GPLX/sql/01-alter-ban-cu-column-widths-moto.sql</code> trên DB đó (Laravel cũng tự cắt chuỗi dài khi ghi).
             </div>
         </div>
     </div>

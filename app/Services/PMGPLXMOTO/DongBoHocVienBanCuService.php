@@ -97,7 +97,7 @@ class DongBoHocVienBanCuService
             ];
 
             $mappedMaDk = $maKhoaHocDich
-                ? MaDkBanCu::mapFromSource((string) $row->MaDK, $maKhoaHocDich)
+                ? MaDkBanCu::mapFromSource((string) $row->MaDK, $maKhoaHocDich, $maKhoaHocNguon)
                 : null;
 
             if ($mappedMaDk) {
@@ -234,7 +234,7 @@ class DongBoHocVienBanCuService
         }
 
         $plannedMaDks = $students
-            ->map(fn ($row) => MaDkBanCu::mapFromSource((string) $row->MaDK, $maKhoaHocDich))
+            ->map(fn ($row) => MaDkBanCu::mapFromSource((string) $row->MaDK, $maKhoaHocDich, $maKhoaHocNguon))
             ->all();
 
         $existingMaDks = $this->findExistingMaDks($plannedMaDks);
@@ -255,9 +255,15 @@ class DongBoHocVienBanCuService
         $oldDb->beginTransaction();
 
         try {
+            $this->setTableConstraintChecks(false);
+
             foreach ($students->values() as $index => $row) {
                 $sourceMaDk = $row->MaDK;
-                $targetMaDk = $plannedMaDks[$index] ?? MaDkBanCu::mapFromSource((string) $sourceMaDk, $maKhoaHocDich);
+                $targetMaDk = $plannedMaDks[$index] ?? MaDkBanCu::mapFromSource(
+                    (string) $sourceMaDk,
+                    $maKhoaHocDich,
+                    $maKhoaHocNguon
+                );
 
                 if (! $targetMaDk) {
                     $failed++;
@@ -289,10 +295,23 @@ class DongBoHocVienBanCuService
                     $khoaHocBanCu
                 );
 
-                $oldDb->table('NguoiLX')->updateOrInsert(['MaDK' => $targetMaDk], $payloadNguoi);
-
+                $payloadNguoi = $this->clipPayloadToOldColumnLengths('NguoiLX', $payloadNguoi);
                 if ($payloadHoSo !== null) {
-                    $oldDb->table('NguoiLX_HoSo')->updateOrInsert(['MaDK' => $targetMaDk], $payloadHoSo);
+                    $payloadHoSo = $this->clipPayloadToOldColumnLengths('NguoiLX_HoSo', $payloadHoSo);
+                }
+
+                try {
+                    $oldDb->table('NguoiLX')->updateOrInsert(['MaDK' => $targetMaDk], $payloadNguoi);
+
+                    if ($payloadHoSo !== null) {
+                        $oldDb->table('NguoiLX_HoSo')->updateOrInsert(['MaDK' => $targetMaDk], $payloadHoSo);
+                    }
+                } catch (\Throwable $e) {
+                    throw new \RuntimeException(
+                        "Ghi học viên {$sourceMaDk} → {$targetMaDk} thất bại: ".$e->getMessage(),
+                        (int) $e->getCode(),
+                        $e
+                    );
                 }
 
                 $syncedMaDks[] = $targetMaDk;
@@ -304,6 +323,8 @@ class DongBoHocVienBanCuService
             $oldDb->rollBack();
 
             throw $e;
+        } finally {
+            $this->setTableConstraintChecks(true);
         }
 
         return [
@@ -569,5 +590,77 @@ class DongBoHocVienBanCuService
         }
 
         return $out;
+    }
+
+    /**
+     * Giống COPY_DATA_GPLX: NOCHECK/CHECK trong lúc ghi (tránh vướng FK tạm thời).
+     */
+    private function setTableConstraintChecks(bool $check): void
+    {
+        $state = $check ? 'CHECK' : 'NOCHECK';
+        $conn = DB::connection('sqlsrv_moto_old');
+
+        foreach (['NguoiLX', 'NguoiLX_HoSo'] as $table) {
+            $conn->statement("ALTER TABLE [{$table}] {$state} CONSTRAINT ALL");
+        }
+    }
+
+    /**
+     * Cột chuỗi trên DB cũ ngắn hơn bản mới → cắt bớt để tránh "String or binary data would be truncated"
+     * (khuyến nghị vẫn chạy PUBLISH_DATA_GPLX/sql/01-alter-ban-cu-column-widths-moto.sql trên đích).
+     *
+     * @param  array<string, mixed>  $payload
+     * @return array<string, mixed>
+     */
+    private function clipPayloadToOldColumnLengths(string $table, array $payload): array
+    {
+        $limits = $this->oldStringColumnCharLimits($table);
+
+        foreach ($payload as $col => $val) {
+            if ($val === null || ! is_string($val) || ! isset($limits[$col])) {
+                continue;
+            }
+
+            $max = $limits[$col];
+            if ($max > 0 && mb_strlen($val) > $max) {
+                $payload[$col] = mb_substr($val, 0, $max);
+            }
+        }
+
+        return $payload;
+    }
+
+    /**
+     * @return array<string, int>
+     */
+    private function oldStringColumnCharLimits(string $table): array
+    {
+        static $cache = [];
+
+        if (! array_key_exists($table, $cache)) {
+            $rows = DB::connection('sqlsrv_moto_old')->select(
+                'SELECT c.name, ty.name AS type_name, c.max_length
+                FROM sys.columns c
+                INNER JOIN sys.tables t ON c.object_id = t.object_id
+                INNER JOIN sys.types ty ON c.user_type_id = ty.user_type_id
+                WHERE t.name = ? AND ty.name IN (\'nvarchar\', \'varchar\', \'nchar\', \'char\')',
+                [$table]
+            );
+
+            $limits = [];
+            foreach ($rows as $row) {
+                $maxLength = (int) $row->max_length;
+                if ($maxLength < 0) {
+                    continue;
+                }
+
+                $isWide = in_array((string) $row->type_name, ['nvarchar', 'nchar'], true);
+                $limits[(string) $row->name] = $isWide ? (int) ($maxLength / 2) : $maxLength;
+            }
+
+            $cache[$table] = $limits;
+        }
+
+        return $cache[$table];
     }
 }
