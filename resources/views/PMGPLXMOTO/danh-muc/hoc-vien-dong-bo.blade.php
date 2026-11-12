@@ -248,7 +248,9 @@
                 </ul>
                 Copy sang bản cũ giống <code>PUBLISH_DATA_GPLX/sql/03-copy-khoa-hoc-makh-dich.sql</code>:
                 <strong>BaoCaoI</strong> (nếu có) + <strong>NguoiLX</strong> + <strong>NguoiLX_HoSo</strong> — danh sách cột cố định như script 03.
-                Không copy <strong>KhoaHoc</strong> (tạo khóa đích trên PM cũ trước, chọn <strong>mã khóa đích</strong>).
+                Tạo/chọn <strong>mã khóa đích</strong> trên PM cũ trước. Kết quả phải <strong>y chang tool copy</strong> (vd. <code>44016K260003</code> ↔ <code>45003K26A1013</code>),
+                chỉ khác: <code>MaKH</code>, <code>MaKhoaHoc</code>, prefix <code>MaDK</code>; giữ <code>MaCSDT</code>/<code>MaSoGTVT</code> khóa đích;
+                <code>DuongDanAnh</code> giữ như nguồn (thư mục ảnh gốc). Đồng bộ <strong>cập nhật <code>KhoaHoc</code> + <code>BaoCaoI</code></strong> từ nguồn (có thể chạy lại khi HV đã đủ).
                 <strong>Map khi ghi:</strong> <code>MaDK</code> đổi prefix; <code>MaKhoaHoc</code>/<code>BaoCaoI.MaKH</code> = khóa đích;
                 <code>MaCSDT</code> / <code>MaSoGTVT</code> / <code>MaDVNhanHSo</code> / <code>DonViNhanHSo</code> theo khóa đích; học viên có <code>MaDK</code> đúng prefix khóa nguồn.
                 Chỉ <strong>INSERT</strong> nếu chưa có <code>MaDK</code>/<code>MaBCI</code> trên bản cũ (không ghi đè).

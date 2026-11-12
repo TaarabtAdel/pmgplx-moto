@@ -232,24 +232,16 @@ class DongBoHocVienBanCuService
             ->filter(fn ($row) => MaDkBanCu::maDkMatchesCopyFilter((string) $row->MaDK, $oldPrefix))
             ->values();
 
-        if ($students->isEmpty()) {
-            return [
-                'inserted' => 0,
-                'updated' => 0,
-                'failed' => 0,
-                'total' => 0,
-                'skipped' => 0,
-                'bao_cao_i_inserted' => 0,
-                'inserted_ma_dks' => [],
-            ];
-        }
-
         $khoaHocBanCu = KhoaHocOld::query()
             ->where('MaKH', $maKhoaHocDich)
             ->first(['MaKH', 'MaCSDT', 'MaSoGTVT']);
 
         if ($khoaHocBanCu === null) {
             throw new \InvalidArgumentException('Mã khóa học đích không tồn tại trên bản cũ.');
+        }
+
+        if ($students->isEmpty()) {
+            return $this->syncCourseMetadataOnly($maKhoaHocNguon, $maKhoaHocDich, $khoaHocBanCu);
         }
 
         $plannedMaDks = $students
@@ -275,11 +267,19 @@ class DongBoHocVienBanCuService
         $oldDb->beginTransaction();
 
         $baoCaoIInserted = 0;
+        $baoCaoIUpdated = 0;
+        $khoaHocSynced = false;
 
         try {
             $this->setTableConstraintChecks(false);
 
-            $baoCaoIInserted = $this->copyBaoCaoIFromCourse(
+            $khoaHocSynced = $this->syncKhoaHocFromSource(
+                $maKhoaHocNguon,
+                $maKhoaHocDich,
+                $oldDb
+            );
+
+            [$baoCaoIInserted, $baoCaoIUpdated] = $this->syncBaoCaoIFromCourse(
                 $maKhoaHocNguon,
                 $maKhoaHocDich,
                 $khoaHocBanCu,
@@ -350,6 +350,9 @@ class DongBoHocVienBanCuService
                 $inserted++;
             }
 
+            $this->alignKhoaHocWithBaoCaoI($maKhoaHocDich, $oldDb);
+            $this->refreshTongSoHocVienOnKhoa($maKhoaHocDich, $oldDb);
+
             $oldDb->commit();
         } catch (\Throwable $e) {
             $oldDb->rollBack();
@@ -366,6 +369,8 @@ class DongBoHocVienBanCuService
             'total' => $students->count(),
             'skipped' => $skipped,
             'bao_cao_i_inserted' => $baoCaoIInserted,
+            'bao_cao_i_updated' => $baoCaoIUpdated,
+            'khoa_hoc_synced' => $khoaHocSynced,
             'inserted_ma_dks' => $syncedMaDks,
             'source_ma_dk' => $onlySourceMaDk ?? ($students->first()->MaDK ?? null),
             'target_ma_dk' => $syncedMaDks[0] ?? null,
@@ -625,22 +630,155 @@ class DongBoHocVienBanCuService
     }
 
     /**
-     * BaoCaoI theo sql/03-copy-khoa-hoc-makh-dich: MaKH đích, MaCSDT khóa đích, INSERT nếu chưa có MaBCI.
+     * Chỉ đồng bộ metadata khóa + BaoCaoI (HV đã đủ hoặc không có HV trên nguồn).
+     *
+     * @return array<string, mixed>
      */
-    private function copyBaoCaoIFromCourse(
+    private function syncCourseMetadataOnly(
+        string $maKhoaHocNguon,
+        string $maKhoaHocDich,
+        object $khoaHocBanCu
+    ): array {
+        $oldDb = DB::connection('sqlsrv_moto_old');
+        $baoCaoIInserted = 0;
+        $baoCaoIUpdated = 0;
+        $khoaHocSynced = false;
+
+        $oldDb->beginTransaction();
+
+        try {
+            $khoaHocSynced = $this->syncKhoaHocFromSource($maKhoaHocNguon, $maKhoaHocDich, $oldDb);
+            [$baoCaoIInserted, $baoCaoIUpdated] = $this->syncBaoCaoIFromCourse(
+                $maKhoaHocNguon,
+                $maKhoaHocDich,
+                $khoaHocBanCu,
+                $oldDb
+            );
+            $this->alignKhoaHocWithBaoCaoI($maKhoaHocDich, $oldDb);
+            $this->refreshTongSoHocVienOnKhoa($maKhoaHocDich, $oldDb);
+            $oldDb->commit();
+        } catch (\Throwable $e) {
+            $oldDb->rollBack();
+
+            throw $e;
+        }
+
+        return [
+            'inserted' => 0,
+            'updated' => 0,
+            'failed' => 0,
+            'total' => 0,
+            'skipped' => 0,
+            'bao_cao_i_inserted' => $baoCaoIInserted,
+            'bao_cao_i_updated' => $baoCaoIUpdated,
+            'khoa_hoc_synced' => $khoaHocSynced,
+            'inserted_ma_dks' => [],
+        ];
+    }
+
+    /**
+     * PM tool: NgayKG/NgayBG trên KhoaHoc khớp BaoCaoI — áp từ BaoCaoI đích sau đồng bộ.
+     */
+    private function alignKhoaHocWithBaoCaoI(string $maKhoaHoc, \Illuminate\Database\Connection $oldDb): void
+    {
+        if (! Schema::connection('sqlsrv_moto_old')->hasTable('KhoaHoc')
+            || ! Schema::connection('sqlsrv_moto_old')->hasTable('BaoCaoI')) {
+            return;
+        }
+
+        $baoCao = $oldDb->table('BaoCaoI')->where('MaKH', $maKhoaHoc)->first();
+        if ($baoCao === null) {
+            return;
+        }
+
+        $payload = [];
+        foreach (['NgayKG', 'NgayBG'] as $col) {
+            if (isset($baoCao->{$col}) && $baoCao->{$col} !== null && $baoCao->{$col} !== '') {
+                $payload[$col] = $baoCao->{$col};
+            }
+        }
+
+        if ($payload === []) {
+            return;
+        }
+
+        $oldDb->table('KhoaHoc')->where('MaKH', $maKhoaHoc)->update($payload);
+    }
+
+    /**
+     * Cập nhật KhoaHoc đích từ khóa nguồn (bản mới): giữ MaKH, MaCSDT, MaSoGTVT của khóa đích.
+     */
+    private function syncKhoaHocFromSource(
+        string $maKhoaHocNguon,
+        string $maKhoaHocDich,
+        \Illuminate\Database\Connection $oldDb
+    ): bool {
+        if (! Schema::connection('sqlsrv_moto')->hasTable('KhoaHoc')
+            || ! Schema::connection('sqlsrv_moto_old')->hasTable('KhoaHoc')) {
+            return false;
+        }
+
+        $cols = CopyBanCuColumnLists::forTable('KhoaHoc');
+        if ($cols === []) {
+            return false;
+        }
+
+        $source = KhoaHoc::query()->where('MaKH', $maKhoaHocNguon)->first();
+        if ($source === null) {
+            return false;
+        }
+
+        $payload = $this->onlyColumns($source->getAttributes(), $cols);
+        if ($payload === []) {
+            return false;
+        }
+
+        $baoCaoNguon = DB::connection('sqlsrv_moto')
+            ->table('BaoCaoI')
+            ->where('MaKH', $maKhoaHocNguon)
+            ->first();
+        if ($baoCaoNguon !== null) {
+            foreach (['NgayKG', 'NgayBG'] as $col) {
+                if (isset($baoCaoNguon->{$col}) && $baoCaoNguon->{$col} !== null && $baoCaoNguon->{$col} !== '') {
+                    $payload[$col] = $baoCaoNguon->{$col};
+                }
+            }
+        }
+
+        $payload = $this->clipPayloadToOldColumnLengths('KhoaHoc', $payload);
+
+        return $oldDb->table('KhoaHoc')->where('MaKH', $maKhoaHocDich)->update($payload) > 0;
+    }
+
+    private function refreshTongSoHocVienOnKhoa(string $maKhoaHoc, \Illuminate\Database\Connection $oldDb): void
+    {
+        if (! Schema::connection('sqlsrv_moto_old')->hasTable('KhoaHoc')) {
+            return;
+        }
+
+        $count = (int) $oldDb->table('NguoiLX_HoSo')->where('MaKhoaHoc', $maKhoaHoc)->count();
+        $oldDb->table('KhoaHoc')->where('MaKH', $maKhoaHoc)->update(['TongSoHV' => $count]);
+    }
+
+    /**
+     * BaoCaoI: MaKH/MaCSDT khóa đích; INSERT hoặc UPDATE bản ghi đã gắn MaKH đích.
+     *
+     * @return array{0: int, 1: int} inserted, updated
+     */
+    private function syncBaoCaoIFromCourse(
         string $maKhoaHocNguon,
         string $maKhoaHocDich,
         object $khoaHocBanCu,
         \Illuminate\Database\Connection $oldDb
-    ): int {
+    ): array {
         if (! Schema::connection('sqlsrv_moto')->hasTable('BaoCaoI')
             || ! Schema::connection('sqlsrv_moto_old')->hasTable('BaoCaoI')) {
-            return 0;
+            return [0, 0];
         }
 
         $cols = CopyBanCuColumnLists::forTable('BaoCaoI');
         if ($cols === []) {
-            return 0;
+            return [0, 0];
         }
 
         $maCsdt = trim((string) ($khoaHocBanCu->MaCSDT ?? ''));
@@ -650,6 +788,7 @@ class DongBoHocVienBanCuService
             ->get();
 
         $inserted = 0;
+        $updated = 0;
 
         foreach ($rows as $row) {
             $maBci = (string) ($row->MaBCI ?? '');
@@ -657,12 +796,8 @@ class DongBoHocVienBanCuService
                 continue;
             }
 
-            if ($oldDb->table('BaoCaoI')->where('MaBCI', $maBci)->exists()) {
-                continue;
-            }
-
             $payload = $this->onlyColumns((array) $row, $cols);
-            $payload['MaBCI'] = $maBci;
+            unset($payload['MaBCI']);
             $payload['MaKH'] = $maKhoaHocDich;
             if ($maCsdt !== '') {
                 $payload['MaCSDT'] = $maCsdt;
@@ -670,11 +805,25 @@ class DongBoHocVienBanCuService
 
             $payload = $this->clipPayloadToOldColumnLengths('BaoCaoI', $payload);
 
+            $existingOnDest = $oldDb->table('BaoCaoI')->where('MaKH', $maKhoaHocDich)->first();
+
+            if ($existingOnDest !== null) {
+                $oldDb->table('BaoCaoI')->where('MaKH', $maKhoaHocDich)->update($payload);
+                $updated++;
+
+                continue;
+            }
+
+            if ($oldDb->table('BaoCaoI')->where('MaBCI', $maBci)->exists()) {
+                continue;
+            }
+
+            $payload['MaBCI'] = $maBci;
             $oldDb->table('BaoCaoI')->insert($payload);
             $inserted++;
         }
 
-        return $inserted;
+        return [$inserted, $updated];
     }
 
     private function countBaoCaoIOnSource(string $maKhoaHoc): int

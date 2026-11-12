@@ -10,6 +10,18 @@ use Illuminate\Support\Facades\Schema;
  */
 class CopyBanCuColumnLists
 {
+    /**
+     * Metadata khóa (CopyDuLieuKhoaHoc / 04-reference): copy sang đích, giữ MaKH đích + MaCSDT/MaSoGTVT đích.
+     *
+     * @var list<string>
+     */
+    public const KHOA_HOC = [
+        'TenKH', 'HangGPLX', 'HangDT', 'SoQD_KhaiGiang', 'NgayQD_KhaiGiang', 'NgayKG', 'NgayBG',
+        'MucTieuDT', 'NgayThi', 'NgaySH', 'TongSoHV', 'SoHVTotNghiep', 'SoHVDuocCapGPLX',
+        'ThoiGianDT', 'SoNgayOnKT', 'SoNgayThucHoc', 'SoNgayNghiLe', 'TongSoNgay', 'GhiChu',
+        'TrangThai', 'NguoiTao', 'NguoiSua', 'NgayTao', 'NgaySua', 'TT_Xuly',
+    ];
+
     /** @var list<string> */
     public const BAO_CAO_I = [
         'MaBCI', 'MaCSDT', 'MaKH', 'SoBaoCao', 'NgayBaoCao', 'SoGP', 'NgayCapGP',
@@ -61,6 +73,7 @@ class CopyBanCuColumnLists
         string $targetConnection = 'sqlsrv_moto_old'
     ): array {
         $base = match ($table) {
+            'KhoaHoc' => self::KHOA_HOC,
             'BaoCaoI' => self::BAO_CAO_I,
             'NguoiLX' => self::NGUOI_LX,
             'NguoiLX_HoSo' => self::NGUOI_LX_HO_SO,

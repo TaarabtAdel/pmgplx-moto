@@ -159,7 +159,10 @@ class DanhSachHocVienController extends Controller
         }
 
         $hvSynced = ($result['inserted'] ?? 0) + ($result['updated'] ?? 0);
-        if ($hvSynced === 0 && ($result['bao_cao_i_inserted'] ?? 0) === 0) {
+        $metaSynced = ($result['khoa_hoc_synced'] ?? false)
+            || ($result['bao_cao_i_inserted'] ?? 0) > 0
+            || ($result['bao_cao_i_updated'] ?? 0) > 0;
+        if ($hvSynced === 0 && ! $metaSynced) {
             $message = $result['failed'] > 0
                 ? "Không có học viên nào được đồng bộ — {$result['failed']} lỗi."
                 : (($result['skipped'] ?? 0) > 0
@@ -190,15 +193,21 @@ class DanhSachHocVienController extends Controller
         if (($result['failed'] ?? 0) > 0) {
             $detail[] = "lỗi {$result['failed']}";
         }
+        if ($result['khoa_hoc_synced'] ?? false) {
+            $detail[] = 'KhoaHoc cập nhật';
+        }
         if (($result['bao_cao_i_inserted'] ?? 0) > 0) {
-            $detail[] = "BaoCaoI {$result['bao_cao_i_inserted']}";
+            $detail[] = "BaoCaoI +{$result['bao_cao_i_inserted']}";
+        }
+        if (($result['bao_cao_i_updated'] ?? 0) > 0) {
+            $detail[] = "BaoCaoI cập nhật {$result['bao_cao_i_updated']}";
         }
 
         $message = "Đã đồng bộ {$synced} học viên từ khóa {$maKhNguon} sang khóa {$maKhDich} trên bản cũ";
         if ($detail !== []) {
             $message .= ' ('.implode(', ', $detail).')';
         }
-        $message .= '. Cột & luồng giống sql/03-copy-khoa-hoc-makh-dich (BaoCaoI + NguoiLX + NguoiLX_HoSo; chỉ INSERT nếu chưa có MaDK/MaBCI). Có thể Khôi phục để xóa học viên đã đồng bộ.';
+        $message .= '. Metadata khóa (KhoaHoc, BaoCaoI) lấy từ nguồn; MaKH/MaCSDT/MaSoGTVT giữ khóa đích; TongSoHV đếm lại sau ghi HV. Có thể Khôi phục để xóa học viên đã đồng bộ.';
 
         return redirect()
             ->route('pmgplxmoto.dm.hoc-vien.dong-bo.form', [
