@@ -71,4 +71,13 @@ class KhoaHoc extends Model
                     ->orWhereNull('NgayBG');
             });
     }
+
+    /** Khóa mô tô (A1, A1m, …) — loại hạng ô tô B/C/D khỏi dropdown PM mô tô. */
+    public function scopeHangMoto($query)
+    {
+        return $query->where(function ($q) {
+            $q->where('HangGPLX', 'like', 'A%')
+                ->orWhere('HangDT', 'like', 'A%');
+        });
+    }
 }

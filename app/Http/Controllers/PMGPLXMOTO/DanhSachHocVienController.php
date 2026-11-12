@@ -101,12 +101,17 @@ class DanhSachHocVienController extends Controller
         $maKhNguon = trim((string) $request->input('ma_kh_nguon', ''));
         $maKhDich = trim((string) $request->input('ma_kh_dich', ''));
 
+        $maKhCoHv = DB::connection('sqlsrv_moto')
+            ->table('NguoiLX_HoSo')
+            ->whereNotNull('MaKhoaHoc')
+            ->distinct()
+            ->pluck('MaKhoaHoc');
+
         $khoaHocsNguon = KhoaHoc::query()
-            ->whereIn('MaKH', function ($q) {
-                $q->select('MaKhoaHoc')->from('NguoiLX_HoSo')->whereNotNull('MaKhoaHoc');
-            })
+            ->hangMoto()
+            ->whereIn('MaKH', $maKhCoHv)
             ->orderBy('TenKH')
-            ->get(['MaKH', 'TenKH']);
+            ->get(['MaKH', 'TenKH', 'HangGPLX']);
 
         $khoaHocsDich = KhoaHocOld::query()
             ->orderBy('TenKH')
@@ -122,6 +127,7 @@ class DanhSachHocVienController extends Controller
             'khoaHocsDich' => $khoaHocsDich,
             'maKhNguon' => $maKhNguon,
             'maKhDich' => $maKhDich,
+            'maDkNguonTest' => trim((string) $request->input('ma_dk_nguon', '')),
             'preview' => $preview,
             'lastBatch' => $request->session()->get(DongBoHocVienBanCuService::SESSION_LAST_BATCH),
         ]);
@@ -152,16 +158,10 @@ class DanhSachHocVienController extends Controller
             return back()->withInput()->with('error', 'Đồng bộ thất bại: '.$e->getMessage());
         }
 
-        $insertedHv = (int) ($result['inserted'] ?? 0);
-        $bciInserted = (int) ($result['bao_cao_i']['inserted'] ?? 0);
-
-        if ($insertedHv === 0 && $bciInserted === 0) {
-            $skipped = (int) ($result['skipped'] ?? 0);
+        if (($result['inserted'] ?? 0) + ($result['updated'] ?? 0) === 0) {
             $message = $result['failed'] > 0
-                ? "Không có học viên mới được copy — {$result['failed']} lỗi."
-                : ($skipped > 0
-                    ? "Không copy học viên mới ({$skipped} đã có / không thuộc prefix — giống tool cũ bỏ qua)."
-                    : 'Không có học viên nào được copy.');
+                ? "Không có học viên nào được đồng bộ — {$result['failed']} lỗi."
+                : 'Không có học viên nào được đồng bộ.';
 
             return redirect()
                 ->route('pmgplxmoto.dm.hoc-vien.dong-bo.form', [
@@ -171,40 +171,28 @@ class DanhSachHocVienController extends Controller
                 ->with('error', $message);
         }
 
-        if ($insertedHv > 0) {
-            $request->session()->put(
-                DongBoHocVienBanCuService::SESSION_LAST_BATCH,
-                $service->buildSessionBatch($maKhNguon, $maKhDich, $result)
-            );
-        }
+        $request->session()->put(
+            DongBoHocVienBanCuService::SESSION_LAST_BATCH,
+            $service->buildSessionBatch($maKhNguon, $maKhDich, $result)
+        );
 
-        $synced = $insertedHv;
+        $synced = ($result['inserted'] ?? 0) + ($result['updated'] ?? 0);
         $detail = [];
-        if ($synced > 0) {
-            $detail[] = "copy mới {$synced}";
+        if (($result['inserted'] ?? 0) > 0) {
+            $detail[] = "thêm mới {$result['inserted']}";
         }
-        if (($result['skipped'] ?? 0) > 0) {
-            $detail[] = 'bỏ qua '.($result['skipped']);
+        if (($result['updated'] ?? 0) > 0) {
+            $detail[] = "cập nhật {$result['updated']}";
         }
         if (($result['failed'] ?? 0) > 0) {
             $detail[] = "lỗi {$result['failed']}";
         }
-        if (($result['bao_cao_i']['inserted'] ?? 0) > 0) {
-            $detail[] = 'BaoCaoI +'.$result['bao_cao_i']['inserted'];
-        }
 
-        if ($synced > 0) {
-            $message = "Đã copy {$synced} học viên từ khóa {$maKhNguon} sang khóa {$maKhDich} trên bản cũ";
-        } else {
-            $message = "Đã copy phụ trợ (BaoCaoI…) cho khóa {$maKhDich}; không có học viên mới";
-        }
+        $message = "Đã đồng bộ {$synced} học viên từ khóa {$maKhNguon} sang khóa {$maKhDich} trên bản cũ";
         if ($detail !== []) {
             $message .= ' ('.implode(', ', $detail).')';
         }
-        $message .= '. Luồng giống CopyDuLieuKhoaHoc (+ giấy tờ). HV đã có MaDK không ghi đè.';
-        if ($synced > 0) {
-            $message .= ' Dùng Khôi phục để xóa lô HV vừa copy.';
-        }
+        $message .= '. Bao gồm NguoiLX, NguoiLX_HoSo và NguoiLXHS_GiayTo. Có thể dùng Khôi phục để xóa lại trên bản cũ.';
 
         return redirect()
             ->route('pmgplxmoto.dm.hoc-vien.dong-bo.form', [
@@ -234,11 +222,13 @@ class DanhSachHocVienController extends Controller
             return back()->withInput()->with('error', 'Mã khóa học nguồn không tồn tại.');
         }
 
-        $preview = $service->buildPreview($maKhNguon, $maKhDich);
-        $testStudent = $preview['meta']['test_student'] ?? null;
+        $inCourse = $service->studentsInCourse($maKhNguon)
+            ->contains(fn ($row) => (string) $row->MaDK === $maDkNguon);
 
-        if (! is_array($testStudent) || ($testStudent['ma_dk_nguon'] ?? '') !== $maDkNguon) {
-            return back()->withInput()->with('error', 'Học viên test không hợp lệ.');
+        if (! $inCourse) {
+            return back()
+                ->withInput()
+                ->with('error', "Mã ĐK «{$maDkNguon}» không thuộc khóa nguồn {$maKhNguon}.");
         }
 
         try {
@@ -249,17 +239,13 @@ class DanhSachHocVienController extends Controller
             return back()->withInput()->with('error', 'Test đồng bộ thất bại: '.$e->getMessage());
         }
 
-        if (($result['inserted'] ?? 0) === 0) {
-            $reason = ($result['skipped'] ?? 0) > 0
-                ? 'Học viên đã có trên bản cũ hoặc không thuộc prefix — tool bỏ qua, không ghi đè.'
-                : 'Không thể test copy học viên này.';
-
+        if (($result['inserted'] ?? 0) + ($result['updated'] ?? 0) === 0) {
             return redirect()
                 ->route('pmgplxmoto.dm.hoc-vien.dong-bo.form', [
                     'ma_kh_nguon' => $maKhNguon,
                     'ma_kh_dich' => $maKhDich,
                 ])
-                ->with('error', $reason);
+                ->with('error', 'Không thể test đồng bộ học viên này.');
         }
 
         $request->session()->put(
@@ -267,17 +253,18 @@ class DanhSachHocVienController extends Controller
             $service->buildSessionBatch($maKhNguon, $maKhDich, $result, true)
         );
 
-        $hoTen = trim((string) ($result['ho_ten'] ?? $testStudent['ho_ten'] ?? ''));
-        $targetMaDk = $result['target_ma_dk'] ?? $testStudent['ma_dk'] ?? '';
+        $targetMaDk = $result['target_ma_dk'] ?? '';
+        $hoTen = trim((string) ($result['ho_ten'] ?? ''));
 
         return redirect()
             ->route('pmgplxmoto.dm.hoc-vien.dong-bo.form', [
                 'ma_kh_nguon' => $maKhNguon,
                 'ma_kh_dich' => $maKhDich,
+                'ma_dk_nguon' => $maDkNguon,
             ])
             ->with(
                 'success',
-                "Đã test copy 1 học viên ({$hoTen}): {$maDkNguon} → {$targetMaDk} trên bản cũ (kèm giấy tờ). Kiểm tra dữ liệu, sau đó dùng Khôi phục nếu cần xóa."
+                "Đã test đồng bộ 1 học viên ({$hoTen}): {$maDkNguon} → {$targetMaDk}. Kiểm tra trên bản cũ, dùng Khôi phục nếu cần xóa."
             );
     }
 

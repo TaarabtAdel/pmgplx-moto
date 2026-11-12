@@ -17,8 +17,8 @@
     }
     .hoc-vien-dong-bo-source-scroll.table-responsive > table,
     .hoc-vien-dong-bo-planned-scroll.table-responsive > table {
-        width: 1300px;
-        min-width: 1300px;
+        width: 1480px;
+        min-width: 1480px;
         max-width: none;
         table-layout: fixed;
     }
@@ -49,15 +49,17 @@
         white-space: nowrap;
         vertical-align: middle;
     }
+    .hoc-vien-dong-bo-preview colgroup col.col-don-vi-cap,
+    .hoc-vien-dong-bo-preview colgroup col.col-hang,
+    .hoc-vien-dong-bo-preview colgroup col.col-dvc-hien-tai,
+    .hoc-vien-dong-bo-preview colgroup col.col-dvc-ban-cu {
+        width: 200px;
+    }
     .hoc-vien-dong-bo-preview colgroup col.col-tu-so-gplx {
         width: 5.5rem;
     }
-    .hoc-vien-dong-bo-preview colgroup col.col-dvc-hien-tai {
-        width: 7rem;
-    }
-    .hoc-vien-dong-bo-preview colgroup col.col-dvc-ban-cu {
-        width: 11rem;
-    }
+    .hoc-vien-dong-bo-preview .col-don-vi-cap,
+    .hoc-vien-dong-bo-preview .col-hang,
     .hoc-vien-dong-bo-preview .col-tu-so-gplx,
     .hoc-vien-dong-bo-preview .col-dvc-hien-tai,
     .hoc-vien-dong-bo-preview .col-dvc-ban-cu {
@@ -116,6 +118,35 @@
     .hoc-vien-dong-bo-row-conflict code {
         color: #856404 !important;
     }
+    .hoc-vien-dong-bo-preview colgroup col.col-anh {
+        width: 28px;
+    }
+    .hoc-vien-dong-bo-preview .col-anh {
+        width: 28px;
+        text-align: center;
+        vertical-align: middle;
+        padding: 2px !important;
+    }
+    .dong-bo-anh-thumb {
+        width: auto;
+        max-width: 36px;
+        height: 18px;
+        object-fit: cover;
+        border-radius: 2px;
+        border: 1px solid #ced4da;
+        cursor: pointer;
+        display: block;
+    }
+    .dong-bo-anh-thumb-btn:focus {
+        outline: 2px solid #005BAC;
+        outline-offset: 1px;
+    }
+    #dongBoAnhLonModal .modal-body img {
+        max-width: 100%;
+        max-height: 75vh;
+        margin: 0 auto;
+        display: block;
+    }
 </style>
 @endpush
 
@@ -125,12 +156,22 @@
         $sourceRows = $preview['source'] ?? [];
         $plannedRows = $preview['planned'] ?? [];
         $conflictCount = (int) ($meta['conflict_count'] ?? 0);
-        $skipCount = (int) ($meta['skip_count'] ?? $meta['update_count'] ?? $conflictCount);
-        $syncableCount = (int) ($meta['syncable_count'] ?? max(0, count($sourceRows) - $conflictCount));
+        $updateCount = (int) ($meta['update_count'] ?? $conflictCount);
+        $syncableCount = (int) ($meta['syncable_count'] ?? count($sourceRows));
         $canSync = $maKhNguon !== '' && $maKhDich !== '' && (count($sourceRows) > 0);
         $lastBatch = $lastBatch ?? null;
-        $testStudent = $meta['test_student'] ?? null;
-        $canTest = $maKhDich !== '' && is_array($testStudent) && ! empty($testStudent['ma_dk_nguon']);
+        $plannedBySourceMaDk = [];
+        foreach ($plannedRows as $plannedRow) {
+            $src = $plannedRow['ma_dk_nguon'] ?? null;
+            if ($src !== null && $src !== '') {
+                $plannedBySourceMaDk[$src] = $plannedRow;
+            }
+        }
+        $maDkNguonTest = old('ma_dk_nguon', $maDkNguonTest ?? '');
+        $defaultMaDkNguon = $maDkNguonTest !== ''
+            ? $maDkNguonTest
+            : (($plannedRows[0]['ma_dk_nguon'] ?? null) ?: ($sourceRows[0]['ma_dk'] ?? ''));
+        $canTest = $maKhDich !== '' && $maKhNguon !== '' && count($sourceRows) > 0;
     @endphp
 
     @if (! empty($lastBatch) && ! empty($lastBatch['ma_dks']))
@@ -186,13 +227,13 @@
                     Chọn <strong>Khóa học đích</strong> (phần mềm cũ), bấm <strong>Xem trước</strong> — bảng bên phải hiện mã ĐK dự kiến (thay tiền tố mã khóa, phần số sau gộp liền).
                 </li>
                 <li class="mb-2">
-                    Kiểm tra dòng vàng (<strong>Đã tồn tại</strong>): giống tool COPY_DATA_GPLX — <strong>bỏ qua</strong>, không ghi đè; chỉ <strong>insert</strong> mã ĐK chưa có trên bản cũ (prefix <code>OldPrefix-</code> từ khóa nguồn).
+                    Kiểm tra dòng vàng (<strong>Đã tồn tại</strong>): những mã ĐK đã có trên bản cũ sẽ được <strong>cập nhật</strong> khi đồng bộ lại; dòng không vàng là học viên sẽ được thêm mới.
                 </li>
                 <li class="mb-2">
-                    (Khuyến nghị) Bấm <strong>Test 1 học viên</strong> để thử trước — nếu không ổn, dùng <strong>Khôi phục</strong> để xóa trên bản cũ.
+                    (Khuyến nghị) Nhập <strong>mã ĐK nguồn</strong> và bấm <strong>Test học viên</strong> — nếu không ổn, dùng <strong>Khôi phục</strong> để xóa trên bản cũ.
                 </li>
                 <li class="mb-2">
-                    Bấm <strong>Xác nhận đồng bộ sang bản cũ</strong> — copy BaoCaoI (nếu có), học viên mới vào khóa đích; rollback nếu lỗi.
+                    Bấm <strong>Xác nhận đồng bộ sang bản cũ</strong> để đưa toàn bộ học viên sang phần mềm cũ (thêm mới hoặc cập nhật nếu đã có).
                 </li>
                 <li class="mb-2">
                     Sau đồng bộ: cập nhật <strong>kết quả đào tạo</strong> trên bản cũ
@@ -210,20 +251,20 @@
                     <li><strong>NguoiLX_GPLX</strong> — GPLX đã có (nếu có)</li>
                     <li><strong>NguoiLXHS_GiayTo</strong> — giấy tờ kèm hồ sơ (đơn, CMT, ảnh…)</li>
                 </ul>
-                Chức năng này copy học viên vào <strong>khóa đích đã có sẵn</strong> trên bản cũ (không tạo <strong>KhoaHoc</strong>),
-                <strong>BaoCaoI</strong> (nếu có, bỏ qua mã đã tồn tại) và
-                <strong>NguoiLX + NguoiLX_HoSo + NguoiLXHS_GiayTo</strong> (giống COPY_DATA_GPLX, thêm giấy tờ).
-                <strong>Ảnh / đường dẫn</strong> (giống CopyDuLieuKhoaHoc): <code>DuongDanAnh</code>, <code>GhiChu</code>, <code>ChatLuongAnh</code>… copy <strong>nguyên</strong> từ bản mới (vd. thư mục <code>44016…</code>, file <code>44016-….jp2</code>) — PM cũ vẫn trỏ cùng thư mục ảnh như khi tool COPY_DATA_GPLX chạy.
-                (mã ĐK và mã khóa được map sang khóa đích; giấy tờ insert theo <code>MaDK</code> + <code>MaGT</code>).
+                Chức năng này copy sang bản cũ <strong>3 bảng: NguoiLX + NguoiLX_HoSo + NguoiLXHS_GiayTo</strong>
+                (mã ĐK và mã khóa được map sang khóa đích; giấy tờ upsert theo khóa <code>MaDK</code> + <code>MaGT</code>).
+                <strong>Ảnh:</strong> <code>DuongDanAnh</code> và <code>GhiChu</code> (nếu là đường dẫn) được đổi theo mã ĐK / mã khóa / tiền tố đích
+                (vd. <code>44016-…</code> → <code>45003-…</code>, thư mục <code>44016…</code> → <code>45003…</code>) để PM cũ mở đúng file ảnh.
+                Bảng xem trước có cột ảnh (cao 18px) — bấm để phóng to. Trên live cấu hình <code>GPLX_ANH_LOCAL_ROOT</code> (map từ UNC <code>ANH GPLX</code>);
+                máy dev không có thư mục ảnh sẽ hiện ô xám <em>N/A</em> nhưng vẫn xem được đường dẫn trong popup.
                 <strong>Đơn vị cấp GPLX</strong> (<code>DonViCapGPLXDaCo</code>) trên bản cũ: nếu <code>NgayTTGPLXDaCo</code> sau 01/03/2025 thì ghi <code>00</code>;
                 trước mốc đó lấy <strong>2 số đầu của <code>SoGPLXDaCo</code></strong> (vd. <code>450190001488</code> → <code>45</code>, <code>440155002955</code> → <code>44</code>).
                 <strong>Chưa</strong> đưa <code>NguoiLX_GPLX</code>
-                và các cột điểm thi chỉ có trên bản mới.
-                Các cột <code>TGBatDau</code>, <code>TGKetThuc</code>, <code>KetLuanCSDT</code> (nếu có trên cả hai DB) được copy khi đồng bộ;
-                nếu bản cũ chưa có KQ hoặc cần sửa đồng loạt, dùng bước <strong>Cập nhật KQĐT bản cũ</strong> sau đồng bộ.
+                và các cột chỉ có trên bản mới (điểm thi, kết quả DAT…).
+                Đủ để hiện danh sách học viên và giấy tờ trên bản cũ; sau đồng bộ có thể dùng <strong>Cập nhật KQĐT bản cũ</strong> nếu cần.
             </div>
             <div class="alert alert-warning mb-0">
-                <strong>Lưu ý:</strong> Phải <strong>tạo khóa học trên PM cũ</strong> trước, rồi chọn đúng <strong>mã khóa đích</strong> ở form. Đồng bộ sẽ dừng và báo lỗi nếu khóa đích chưa tồn tại trên bản cũ.
+                <strong>Lưu ý:</strong> Nếu bên <strong>Khóa học đích</strong> chưa có khóa học cần đưa qua thì cần <strong>tạo khóa học trên phần mềm cũ trước</strong>, sau đó quay lại chọn khóa đích và xem trước.
             </div>
         </div>
     </div>
@@ -237,13 +278,25 @@
             <form method="GET" action="{{ route('pmgplxmoto.dm.hoc-vien.dong-bo.form') }}" id="form-chon-khoa">
                 <div class="form-row align-items-end">
                     <div class="form-group col-md-5">
-                        <label for="ma_kh_nguon">Mã khóa học nguồn <span class="text-muted">(phần mềm mới)</span></label>
+                        <label for="ma_kh_nguon">Mã khóa học nguồn <span class="text-muted">(phần mềm mới · hạng A)</span></label>
+                        @if (config('app.debug'))
+                            <div class="small text-muted mb-1">DB: <code>{{ config('database.connections.sqlsrv_moto.database') }}</code></div>
+                        @endif
+                        @if ($khoaHocsNguon->isEmpty())
+                            <div class="alert alert-warning py-2 small mb-2">
+                                Không có khóa <strong>hạng A (mô tô)</strong> trên <code>{{ config('database.connections.sqlsrv_moto.database') }}</code>.
+                                Nếu chỉ thấy khóa B/C trước đây, DB bản mới có thể đang trỏ nhầm backup <strong>ô tô</strong> — kiểm tra <code>DB_DATABASE</code> / restore <code>GPLX_MOTO_BAN_MOI</code>.
+                            </div>
+                        @endif
                         <select name="ma_kh_nguon" id="ma_kh_nguon" class="form-control form-control-sm" required>
                             <option value=""></option>
                             @foreach ($khoaHocsNguon as $kh)
                                 @php
                                     $tenKhNguon = trim((string) ($kh->TenKH ?? ''));
-                                    $labelKhNguon = ($tenKhNguon !== '' ? $tenKhNguon : $kh->MaKH).' ('.$kh->MaKH.')';
+                                    $hang = trim((string) ($kh->HangGPLX ?? ''));
+                                    $labelKhNguon = ($tenKhNguon !== '' ? $tenKhNguon : $kh->MaKH)
+                                        .' ('.$kh->MaKH.')'
+                                        .($hang !== '' ? ' · '.$hang : '');
                                 @endphp
                                 <option value="{{ $kh->MaKH }}" data-khoa-label="{{ $labelKhNguon }}" @selected($maKhNguon === $kh->MaKH)>
                                     {{ $labelKhNguon }}
@@ -313,8 +366,9 @@
                                     <col class="col-ma-dk">
                                     <col class="col-ho-ten">
                                     <col class="col-so-gplx">
-                                    <col>
-                                    <col>
+                                    <col class="col-don-vi-cap">
+                                    <col class="col-hang">
+                                    <col class="col-anh">
                                 </colgroup>
                                 <thead>
                                     <tr>
@@ -322,8 +376,9 @@
                                         <th class="col-ma-dk">Mã ĐK</th>
                                         <th class="col-ho-ten">Họ và tên</th>
                                         <th class="col-so-gplx">Số GPLX</th>
-                                        <th>Đơn vị cấp</th>
-                                        <th>Hạng</th>
+                                        <th class="col-don-vi-cap">Đơn vị cấp</th>
+                                        <th class="col-hang">Hạng</th>
+                                        <th class="col-anh">Ảnh</th>
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -333,12 +388,20 @@
                                             <td class="col-ma-dk"><code>{{ $row['ma_dk'] }}</code></td>
                                             <td class="col-ho-ten" title="{{ $row['ho_ten'] }}">{{ $row['ho_ten'] }}</td>
                                             <td class="col-so-gplx" title="{{ $row['so_gplx_da_co'] ?? '' }}">{{ $row['so_gplx_da_co'] ?: '—' }}</td>
-                                            <td>{{ $row['don_vi_cap_gplx_da_co'] ?: '—' }}</td>
-                                            <td>{{ $row['hang_gplx'] }}</td>
+                                            <td class="col-don-vi-cap" title="{{ $row['don_vi_cap_hien_thi'] ?? ($row['don_vi_cap_gplx_da_co'] ?? '') }}">{{ $row['don_vi_cap_hien_thi'] ?? ($row['don_vi_cap_gplx_da_co'] ?: '—') }}</td>
+                                            <td class="col-hang" title="{{ $row['hang_gplx_hien_thi'] ?? ($row['hang_gplx'] ?? '') }}">{{ $row['hang_gplx_hien_thi'] ?? ($row['hang_gplx'] ?: '—') }}</td>
+                                            <td class="col-anh">
+                                                @include('PMGPLXMOTO.danh-muc._dong-bo-anh-thumb', [
+                                                    'anhUrl' => $row['anh_url'] ?? null,
+                                                    'duongDanAnh' => $row['duong_danh_anh'] ?? '',
+                                                    'hoTen' => $row['ho_ten'] ?? '',
+                                                    'maDk' => $row['ma_dk'] ?? '',
+                                                ])
+                                            </td>
                                         </tr>
                                     @empty
                                         <tr>
-                                            <td colspan="6" class="text-center py-4">Không có học viên trong khóa nguồn</td>
+                                            <td colspan="7" class="text-center py-4">Không có học viên trong khóa nguồn</td>
                                         </tr>
                                     @endforelse
                                 </tbody>
@@ -371,7 +434,8 @@
                                         <col class="col-tu-so-gplx">
                                         <col class="col-dvc-hien-tai">
                                         <col class="col-dvc-ban-cu">
-                                        <col>
+                                        <col class="col-hang">
+                                        <col class="col-anh">
                                     </colgroup>
                                     <thead>
                                         <tr>
@@ -383,7 +447,8 @@
                                             <th class="col-tu-so-gplx">Từ Số GPLX</th>
                                             <th class="col-dvc-hien-tai">ĐVC hiện tại</th>
                                             <th class="col-dvc-ban-cu">ĐVC bản cũ</th>
-                                            <th>Hạng</th>
+                                            <th class="col-hang">Hạng</th>
+                                            <th class="col-anh">Ảnh</th>
                                         </tr>
                                     </thead>
                                     <tbody>
@@ -396,7 +461,7 @@
                                                     @if (empty($row['ton_tai']))
                                                         <span class="text-success font-weight-bold" title="Chưa tồn tại trên bản cũ — sẽ thêm mới">+</span>
                                                     @else
-                                                        <span class="text-warning font-weight-bold" title="Đã tồn tại — sẽ bỏ qua khi copy">⊘</span>
+                                                        <span class="text-warning font-weight-bold" title="Đã tồn tại — sẽ cập nhật">↻</span>
                                                     @endif
                                                     {{ $index + 1 }}
                                                 </td>
@@ -414,22 +479,30 @@
                                                         <span class="badge badge-info ml-1" title="Sau 01/03/2025 → ĐVC bản cũ = 00">Sau mốc</span>
                                                     @endif
                                                 </td>
-                                                <td class="col-tu-so-gplx" title="{{ $row['dvc_tu_so_gplx'] ?? '' }}">{{ $row['dvc_tu_so_gplx'] ?: '—' }}</td>
-                                                <td class="col-dvc-hien-tai" title="{{ $row['don_vi_cap_gplx_da_co_goc'] ?? '' }}">{{ $row['don_vi_cap_gplx_da_co_goc'] ?: '—' }}</td>
+                                                <td class="col-tu-so-gplx" title="{{ $row['dvc_tu_so_hien_thi'] ?? ($row['dvc_tu_so_gplx'] ?? '') }}">{{ $row['dvc_tu_so_hien_thi'] ?? ($row['dvc_tu_so_gplx'] ?: '—') }}</td>
+                                                <td class="col-dvc-hien-tai" title="{{ $row['don_vi_cap_goc_hien_thi'] ?? ($row['don_vi_cap_gplx_da_co_goc'] ?? '') }}">{{ $row['don_vi_cap_goc_hien_thi'] ?? ($row['don_vi_cap_gplx_da_co_goc'] ?: '—') }}</td>
                                                 <td class="col-dvc-ban-cu">
                                                     @if (! empty($row['don_vi_cap_doi']))
-                                                        <span class="text-muted">{{ $row['don_vi_cap_gplx_da_co_goc'] ?: ($row['dvc_tu_so_gplx'] ?: '—') }}</span>
+                                                        <span class="text-muted" title="{{ $row['don_vi_cap_goc_hien_thi'] ?? '' }}">{{ $row['don_vi_cap_goc_hien_thi'] ?? ($row['don_vi_cap_gplx_da_co_goc'] ?: ($row['dvc_tu_so_hien_thi'] ?? ($row['dvc_tu_so_gplx'] ?: '—'))) }}</span>
                                                         <span class="mx-1">→</span>
-                                                        <strong class="text-primary">{{ $row['don_vi_cap_gplx_da_co'] ?: '—' }}</strong>
+                                                        <strong class="text-primary" title="{{ $row['don_vi_cap_ban_cu_hien_thi'] ?? '' }}">{{ $row['don_vi_cap_ban_cu_hien_thi'] ?? ($row['don_vi_cap_gplx_da_co'] ?: '—') }}</strong>
                                                     @else
-                                                        {{ $row['don_vi_cap_gplx_da_co'] ?: '—' }}
+                                                        <span title="{{ $row['don_vi_cap_ban_cu_hien_thi'] ?? '' }}">{{ $row['don_vi_cap_ban_cu_hien_thi'] ?? ($row['don_vi_cap_gplx_da_co'] ?: '—') }}</span>
                                                     @endif
                                                 </td>
-                                                <td>{{ $row['hang_gplx'] }}</td>
+                                                <td class="col-hang" title="{{ $row['hang_gplx_hien_thi'] ?? ($row['hang_gplx'] ?? '') }}">{{ $row['hang_gplx_hien_thi'] ?? ($row['hang_gplx'] ?: '—') }}</td>
+                                                <td class="col-anh">
+                                                    @include('PMGPLXMOTO.danh-muc._dong-bo-anh-thumb', [
+                                                        'anhUrl' => $row['anh_url'] ?? null,
+                                                        'duongDanAnh' => $row['duong_danh_anh'] ?? '',
+                                                        'hoTen' => $row['ho_ten'] ?? '',
+                                                        'maDk' => $row['ma_dk'] ?? ($row['ma_dk_nguon'] ?? ''),
+                                                    ])
+                                                </td>
                                             </tr>
                                         @empty
                                             <tr>
-                                                <td colspan="9" class="text-center py-4">Không có dữ liệu</td>
+                                                <td colspan="10" class="text-center py-4">Không có dữ liệu</td>
                                             </tr>
                                         @endforelse
                                     </tbody>
@@ -446,10 +519,10 @@
             </div>
         </div>
 
-        @if ($maKhDich !== '' && count($sourceRows) > 0 && $skipCount > 0)
+        @if ($maKhDich !== '' && count($sourceRows) > 0 && $updateCount > 0)
             <div class="card card-panel">
                 <div class="card-body text-muted">
-                    {{ number_format($skipCount) }} học viên đã có mã ĐK trên bản cũ — sẽ <strong>bỏ qua</strong> (không ghi đè), giống tool COPY_DATA_GPLX.
+                    {{ number_format($updateCount) }} học viên đã có mã ĐK trên bản cũ — sẽ được <strong>cập nhật</strong> (kèm giấy tờ) khi đồng bộ.
                 </div>
             </div>
         @endif
@@ -459,21 +532,31 @@
                 <div class="card-body">
                     <div class="d-flex flex-wrap align-items-center">
                         @if ($canTest)
-                            <form method="POST" action="{{ route('pmgplxmoto.dm.hoc-vien.dong-bo.test-mot') }}" class="mb-2 mr-3"
-                                  onsubmit="return confirm('Test đồng bộ 1 học viên: {{ $testStudent['ho_ten'] ?? '' }}\n{{ $testStudent['ma_dk_nguon'] ?? '' }} → {{ $testStudent['ma_dk'] ?? '' }}\n\nTiếp tục?');">
+                            <form method="POST" action="{{ route('pmgplxmoto.dm.hoc-vien.dong-bo.test-mot') }}" class="mb-2 mr-3 d-flex flex-wrap align-items-end"
+                                  id="form-test-hoc-vien"
+                                  onsubmit="return confirmDongBoTestMot();">
                                 @csrf
                                 <input type="hidden" name="ma_kh_nguon" value="{{ $maKhNguon }}">
                                 <input type="hidden" name="ma_kh_dich" value="{{ $maKhDich }}">
-                                <input type="hidden" name="ma_dk_nguon" value="{{ $testStudent['ma_dk_nguon'] }}">
-                                <button type="submit" class="btn btn-outline-primary">
-                                    Test 1 học viên
+                                <div class="form-group mb-0 mr-2">
+                                    <label for="ma_dk_nguon_test" class="small font-weight-bold mb-1">Mã ĐK nguồn (test)</label>
+                                    <input type="text" name="ma_dk_nguon" id="ma_dk_nguon_test"
+                                           class="form-control form-control-sm"
+                                           style="min-width: 280px;"
+                                           value="{{ $defaultMaDkNguon }}"
+                                           placeholder="vd. 44016-20260718-000001"
+                                           autocomplete="off"
+                                           required>
+                                </div>
+                                <button type="submit" class="btn btn-outline-primary mb-0">
+                                    Test học viên
                                 </button>
                             </form>
                         @endif
 
                         @if ($canSync)
                             <form method="POST" action="{{ route('pmgplxmoto.dm.hoc-vien.dong-bo.store') }}" class="mb-2 mr-3"
-                                  onsubmit="return confirm('Copy khóa {{ $maKhNguon }} → {{ $maKhDich }} trên bản cũ?\nInsert mới: {{ number_format($syncableCount) }} HV{{ $skipCount > 0 ? '\nBỏ qua (đã có): '.number_format($skipCount) : '' }}');">
+                                  onsubmit="return confirm('Đồng bộ {{ number_format($syncableCount) }} học viên từ khóa {{ $maKhNguon }} sang khóa {{ $maKhDich }} trên bản cũ?{{ $updateCount > 0 ? '\n'.number_format($updateCount).' học viên sẽ được cập nhật.' : '' }}');">
                                 @csrf
                                 <input type="hidden" name="ma_kh_nguon" value="{{ $maKhNguon }}">
                                 <input type="hidden" name="ma_kh_dich" value="{{ $maKhDich }}">
@@ -485,17 +568,15 @@
                     </div>
 
                     @if ($canTest)
-                        <div class="small text-muted mt-1">
-                            Test sẽ đồng bộ học viên đầu tiên trong danh sách:
-                            <strong>{{ $testStudent['ho_ten'] ?? '' }}</strong>
-                            (<code>{{ $testStudent['ma_dk_nguon'] ?? '' }}</code> → <code>{{ $testStudent['ma_dk'] ?? '' }}</code>).
+                        <div class="small text-muted mt-1 w-100">
+                            Nhập <strong>mã ĐK trên phần mềm mới</strong> (cột trái).
                             Sau test dùng <strong>Khôi phục</strong> để xóa trên bản cũ nếu cần.
                         </div>
                     @elseif ($canSync)
                         <div class="small text-muted mt-1">
                             Mã ĐK: thay tiền tố khóa, giữ phần ngày-thứ tự (vd. <code>45003-20260831-000002</code>).
-                            @if ($skipCount > 0)
-                                Dòng vàng = đã có trên bản cũ, sẽ bỏ qua khi copy.
+                            @if ($updateCount > 0)
+                                Dòng vàng = đã có trên bản cũ, sẽ cập nhật khi đồng bộ.
                             @endif
                         </div>
                     @endif
@@ -503,10 +584,74 @@
             </div>
         @endif
     @endif
+
+    <div class="modal fade" id="dongBoAnhLonModal" tabindex="-1" role="dialog" aria-labelledby="dongBoAnhLonLabel" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered modal-lg" role="document">
+            <div class="modal-content">
+                <div class="modal-header py-2">
+                    <h5 class="modal-title" id="dongBoAnhLonLabel">Ảnh chân dung</h5>
+                    <button type="button" class="close" data-dismiss="modal" aria-label="Đóng">
+                        <span aria-hidden="true">&times;</span>
+                    </button>
+                </div>
+                <div class="modal-body text-center">
+                    <img id="dongBoAnhLonImg" src="" alt="">
+                    <p class="small text-muted mt-2 mb-0 text-left">
+                        <span id="dongBoAnhLonHoTen"></span>
+                        <code id="dongBoAnhLonMaDk" class="d-block mt-1"></code>
+                        <span id="dongBoAnhLonPath" class="d-block mt-1 text-break"></span>
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
 @endsection
 
 @push('scripts')
 <script>
+    function dongBoMoAnhLon(btn) {
+        var $btn = $(btn);
+        var url = $btn.data('anh-url') || '';
+        var title = $btn.data('anh-title') || 'Ảnh chân dung';
+        var maDk = $btn.data('anh-ma-dk') || '';
+        var path = $btn.data('anh-path') || '';
+        $('#dongBoAnhLonLabel').text(title);
+        $('#dongBoAnhLonHoTen').text(title !== '' ? title : '');
+        $('#dongBoAnhLonMaDk').text(maDk !== '' ? maDk : '');
+        $('#dongBoAnhLonPath').text(path !== '' ? path : '');
+        $('#dongBoAnhLonImg').attr('src', url);
+        $('#dongBoAnhLonModal').modal('show');
+    }
+
+    var dongBoPlannedBySource = @json($plannedBySourceMaDk);
+    var dongBoSourceByMaDk = @json(collect($sourceRows)->keyBy('ma_dk'));
+
+    function confirmDongBoTestMot() {
+        var $inp = $('#ma_dk_nguon_test');
+        if (!$inp.length) {
+            return true;
+        }
+        var src = ($inp.val() || '').trim();
+        if (src === '') {
+            alert('Nhập mã ĐK nguồn.');
+            return false;
+        }
+        var planned = dongBoPlannedBySource[src] || {};
+        var source = dongBoSourceByMaDk[src] || {};
+        var hoTen = source.ho_ten || planned.ho_ten || '';
+        var dst = planned.ma_dk || '';
+        var msg = 'Test đồng bộ 1 học viên';
+        if (hoTen) {
+            msg += ': ' + hoTen;
+        }
+        msg += '\n' + src;
+        if (dst) {
+            msg += ' → ' + dst;
+        }
+        msg += '\n\nTiếp tục?';
+        return confirm(msg);
+    }
+
     function initKhoaHocSelect2(selector, placeholder) {
         var $el = $(selector);
         $el.select2({
