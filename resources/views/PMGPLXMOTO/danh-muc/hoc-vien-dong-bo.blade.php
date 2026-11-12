@@ -17,8 +17,8 @@
     }
     .hoc-vien-dong-bo-source-scroll.table-responsive > table,
     .hoc-vien-dong-bo-planned-scroll.table-responsive > table {
-        width: 1480px;
-        min-width: 1480px;
+        width: 1390px;
+        min-width: 1390px;
         max-width: none;
         table-layout: fixed;
     }
@@ -55,12 +55,8 @@
     .hoc-vien-dong-bo-preview colgroup col.col-dvc-ban-cu {
         width: 200px;
     }
-    .hoc-vien-dong-bo-preview colgroup col.col-tu-so-gplx {
-        width: 5.5rem;
-    }
     .hoc-vien-dong-bo-preview .col-don-vi-cap,
     .hoc-vien-dong-bo-preview .col-hang,
-    .hoc-vien-dong-bo-preview .col-tu-so-gplx,
     .hoc-vien-dong-bo-preview .col-dvc-hien-tai,
     .hoc-vien-dong-bo-preview .col-dvc-ban-cu {
         white-space: nowrap;
@@ -431,7 +427,6 @@
                                         <col class="col-ho-ten">
                                         <col class="col-so-gplx">
                                         <col class="col-ngay-tt-gplx">
-                                        <col class="col-tu-so-gplx">
                                         <col class="col-dvc-hien-tai">
                                         <col class="col-dvc-ban-cu">
                                         <col class="col-hang">
@@ -444,7 +439,6 @@
                                             <th class="col-ho-ten">Họ và tên</th>
                                             <th class="col-so-gplx">Số GPLX</th>
                                             <th class="col-ngay-tt-gplx">Ngày TT GPLX</th>
-                                            <th class="col-tu-so-gplx">Từ Số GPLX</th>
                                             <th class="col-dvc-hien-tai">ĐVC hiện tại</th>
                                             <th class="col-dvc-ban-cu">ĐVC bản cũ</th>
                                             <th class="col-hang">Hạng</th>
@@ -479,7 +473,6 @@
                                                         <span class="badge badge-info ml-1" title="Sau 01/03/2025 → ĐVC bản cũ = 00">Sau mốc</span>
                                                     @endif
                                                 </td>
-                                                <td class="col-tu-so-gplx" title="{{ $row['dvc_tu_so_hien_thi'] ?? ($row['dvc_tu_so_gplx'] ?? '') }}">{{ $row['dvc_tu_so_hien_thi'] ?? ($row['dvc_tu_so_gplx'] ?: '—') }}</td>
                                                 <td class="col-dvc-hien-tai" title="{{ $row['don_vi_cap_goc_hien_thi'] ?? ($row['don_vi_cap_gplx_da_co_goc'] ?? '') }}">{{ $row['don_vi_cap_goc_hien_thi'] ?? ($row['don_vi_cap_gplx_da_co_goc'] ?: '—') }}</td>
                                                 <td class="col-dvc-ban-cu">
                                                     @if (! empty($row['don_vi_cap_doi']))
@@ -502,7 +495,7 @@
                                             </tr>
                                         @empty
                                             <tr>
-                                                <td colspan="10" class="text-center py-4">Không có dữ liệu</td>
+                                                <td colspan="9" class="text-center py-4">Không có dữ liệu</td>
                                             </tr>
                                         @endforelse
                                     </tbody>
