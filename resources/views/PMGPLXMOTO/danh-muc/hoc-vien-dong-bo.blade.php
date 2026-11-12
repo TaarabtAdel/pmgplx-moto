@@ -246,12 +246,19 @@
                     <li><strong>NguoiLX_HoSo</strong> — hồ sơ khóa học (số hồ sơ, mã khóa, hạng GPLX…)</li>
                     <li><strong>NguoiLX_GPLX</strong> — GPLX đã có (nếu có)</li>
                 </ul>
-                Chức năng này copy sang bản cũ <strong>2 bảng: NguoiLX + NguoiLX_HoSo</strong> — cùng quy tắc với <strong>COPY_DATA_GPLX</strong>
-                (không copy Khóa học — bạn <strong>tạo khóa trên phần mềm cũ trước</strong> rồi chọn <strong>mã khóa đích</strong> ở đây).
-                <strong>Map khi ghi:</strong> <code>MaDK</code> (đổi tiền tố khóa), <code>MaCSDT</code> / <code>MaSoGTVT</code> / <code>MaDVNhanHSo</code> / <code>DonViNhanHSo</code> theo khóa đích;
-                <code>MaKhoaHoc</code> = khóa đích; còn lại (hồ sơ, <code>DonViCapGPLXDaCo</code>, <code>DuongDanAnh</code>, cột kết quả nếu có…) <strong>giữ nguyên</strong> từ bản mới.
-                Bảng xem trước có cột ảnh (cao 18px) — bấm để phóng to. Trên live cấu hình <code>GPLX_ANH_LOCAL_ROOT</code> (map từ UNC <code>ANH GPLX</code>).
-                <strong>Chưa</strong> đưa <code>NguoiLXHS_GiayTo</code>, <code>NguoiLX_GPLX</code> và báo cáo khóa (BaoCaoI…).
+                Copy sang bản cũ giống <code>PUBLISH_DATA_GPLX/sql/03-copy-khoa-hoc-makh-dich.sql</code>:
+                <strong>BaoCaoI</strong> (nếu có) + <strong>NguoiLX</strong> + <strong>NguoiLX_HoSo</strong> — danh sách cột cố định như script 03.
+                Không copy <strong>KhoaHoc</strong> (tạo khóa đích trên PM cũ trước, chọn <strong>mã khóa đích</strong>).
+                <strong>Map khi ghi:</strong> <code>MaDK</code> đổi prefix; <code>MaKhoaHoc</code>/<code>BaoCaoI.MaKH</code> = khóa đích;
+                <code>MaCSDT</code> / <code>MaSoGTVT</code> / <code>MaDVNhanHSo</code> / <code>DonViNhanHSo</code> theo khóa đích; học viên có <code>MaDK</code> đúng prefix khóa nguồn.
+                Chỉ <strong>INSERT</strong> nếu chưa có <code>MaDK</code>/<code>MaBCI</code> trên bản cũ (không ghi đè).
+                @if($preview && !empty($preview['meta']['bao_cao_i_nguon']))
+                    <br /><strong>Báo cái I nguồn:</strong> {{ $preview['meta']['bao_cao_i_nguon'] }} dòng
+                    @if(isset($preview['meta']['bao_cao_i_dich']))
+                        · đích ({{ $preview['meta']['ma_kh_dich'] ?? '' }}): {{ $preview['meta']['bao_cao_i_dich'] }} dòng
+                    @endif
+                @endif
+                <strong>Chưa</strong> copy <code>NguoiLXHS_GiayTo</code>, <code>NguoiLX_GPLX</code>.
                 Sau đồng bộ có thể dùng <strong>Cập nhật KQĐT bản cũ</strong> nếu cần.
             </div>
             <div class="alert alert-warning mb-0">

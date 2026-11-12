@@ -10,6 +10,7 @@ use App\Support\PMGPLX\DmDvhcTenDayDu;
 use App\Support\PMGPLX\DonViCapGPLXBanCu;
 use App\Support\PMGPLX\DonViGtvtBanCu;
 use App\Support\PMGPLX\MaDkBanCu;
+use App\Support\PMGPLXMOTO\CopyBanCuColumnLists;
 use App\Support\PMGPLXMOTO\DuongDanAnhPmGplx;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
@@ -149,6 +150,9 @@ class DongBoHocVienBanCuService
             ? KhoaHocOld::query()->find($maKhoaHocDich, ['MaKH', 'TenKH'])
             : null;
 
+        $baoCaoINguon = $this->countBaoCaoIOnSource($maKhoaHocNguon);
+        $baoCaoIDich = $maKhoaHocDich ? $this->countBaoCaoIOnTarget($maKhoaHocDich) : null;
+
         $prefixNguon = MaDkBanCu::prefixFromMaKhoaHoc($maKhoaHocNguon);
         $prefixDich = $maKhoaHocDich ? MaDkBanCu::prefixFromMaKhoaHoc($maKhoaHocDich) : null;
 
@@ -173,6 +177,8 @@ class DongBoHocVienBanCuService
                     fn ($row) => ! empty($row['ma_dk'])
                 )),
                 'test_student' => $this->firstTestableStudent($planned),
+                'bao_cao_i_nguon' => $baoCaoINguon,
+                'bao_cao_i_dich' => $baoCaoIDich,
             ],
         ];
     }
@@ -221,8 +227,21 @@ class DongBoHocVienBanCuService
                 ->values();
         }
 
+        $oldPrefix = MaDkBanCu::prefixFromMaKhoaHoc($maKhoaHocNguon);
+        $students = $students
+            ->filter(fn ($row) => MaDkBanCu::maDkMatchesCopyFilter((string) $row->MaDK, $oldPrefix))
+            ->values();
+
         if ($students->isEmpty()) {
-            return ['inserted' => 0, 'updated' => 0, 'failed' => 0, 'total' => 0, 'skipped' => 0, 'inserted_ma_dks' => []];
+            return [
+                'inserted' => 0,
+                'updated' => 0,
+                'failed' => 0,
+                'total' => 0,
+                'skipped' => 0,
+                'bao_cao_i_inserted' => 0,
+                'inserted_ma_dks' => [],
+            ];
         }
 
         $khoaHocBanCu = KhoaHocOld::query()
@@ -249,13 +268,23 @@ class DongBoHocVienBanCuService
         $oldDb = DB::connection('sqlsrv_moto_old');
         $inserted = 0;
         $updated = 0;
+        $skipped = 0;
         $failed = 0;
         $syncedMaDks = [];
 
         $oldDb->beginTransaction();
 
+        $baoCaoIInserted = 0;
+
         try {
             $this->setTableConstraintChecks(false);
+
+            $baoCaoIInserted = $this->copyBaoCaoIFromCourse(
+                $maKhoaHocNguon,
+                $maKhoaHocDich,
+                $khoaHocBanCu,
+                $oldDb
+            );
 
             foreach ($students->values() as $index => $row) {
                 $sourceMaDk = $row->MaDK;
@@ -276,7 +305,10 @@ class DongBoHocVienBanCuService
                     continue;
                 }
 
-                $exists = isset($existingMaDks[$targetMaDk]);
+                if (isset($existingMaDks[$targetMaDk])) {
+                    $skipped++;
+                    continue;
+                }
 
                 $payloadNguoi = $this->onlyColumns($nguoi->getAttributes(), $colsNguoi);
                 $payloadNguoi['MaDK'] = $targetMaDk;
@@ -301,10 +333,10 @@ class DongBoHocVienBanCuService
                 }
 
                 try {
-                    $oldDb->table('NguoiLX')->updateOrInsert(['MaDK' => $targetMaDk], $payloadNguoi);
+                    $oldDb->table('NguoiLX')->insert($payloadNguoi);
 
                     if ($payloadHoSo !== null) {
-                        $oldDb->table('NguoiLX_HoSo')->updateOrInsert(['MaDK' => $targetMaDk], $payloadHoSo);
+                        $oldDb->table('NguoiLX_HoSo')->insert($payloadHoSo);
                     }
                 } catch (\Throwable $e) {
                     throw new \RuntimeException(
@@ -315,7 +347,7 @@ class DongBoHocVienBanCuService
                 }
 
                 $syncedMaDks[] = $targetMaDk;
-                $exists ? $updated++ : $inserted++;
+                $inserted++;
             }
 
             $oldDb->commit();
@@ -332,7 +364,8 @@ class DongBoHocVienBanCuService
             'updated' => $updated,
             'failed' => $failed,
             'total' => $students->count(),
-            'skipped' => 0,
+            'skipped' => $skipped,
+            'bao_cao_i_inserted' => $baoCaoIInserted,
             'inserted_ma_dks' => $syncedMaDks,
             'source_ma_dk' => $onlySourceMaDk ?? ($students->first()->MaDK ?? null),
             'target_ma_dk' => $syncedMaDks[0] ?? null,
@@ -421,16 +454,15 @@ class DongBoHocVienBanCuService
     }
 
     /**
-     * Cột dùng khi copy sang bản cũ (giao 2 DB, bỏ cột IDENTITY trên sqlsrv_old).
-     * Quy tắc giống COPY_DATA_GPLX: chỉ map mã ĐK + đơn vị theo khóa đích; hồ sơ copy nguyên.
+     * Cột INSERT = 03-copy-khoa-hoc-makh-dich.sql (lọc cột có trên cả hai DB).
      *
      * @return array{0: list<string>, 1: list<string>}
      */
     public function mappableColumns(): array
     {
         return [
-            $this->commonColumns('NguoiLX'),
-            $this->commonColumns('NguoiLX_HoSo'),
+            CopyBanCuColumnLists::forTable('NguoiLX'),
+            CopyBanCuColumnLists::forTable('NguoiLX_HoSo'),
         ];
     }
 
@@ -590,6 +622,83 @@ class DongBoHocVienBanCuService
         }
 
         return $out;
+    }
+
+    /**
+     * BaoCaoI theo sql/03-copy-khoa-hoc-makh-dich: MaKH đích, MaCSDT khóa đích, INSERT nếu chưa có MaBCI.
+     */
+    private function copyBaoCaoIFromCourse(
+        string $maKhoaHocNguon,
+        string $maKhoaHocDich,
+        object $khoaHocBanCu,
+        \Illuminate\Database\Connection $oldDb
+    ): int {
+        if (! Schema::connection('sqlsrv_moto')->hasTable('BaoCaoI')
+            || ! Schema::connection('sqlsrv_moto_old')->hasTable('BaoCaoI')) {
+            return 0;
+        }
+
+        $cols = CopyBanCuColumnLists::forTable('BaoCaoI');
+        if ($cols === []) {
+            return 0;
+        }
+
+        $maCsdt = trim((string) ($khoaHocBanCu->MaCSDT ?? ''));
+        $rows = DB::connection('sqlsrv_moto')
+            ->table('BaoCaoI')
+            ->where('MaKH', $maKhoaHocNguon)
+            ->get();
+
+        $inserted = 0;
+
+        foreach ($rows as $row) {
+            $maBci = (string) ($row->MaBCI ?? '');
+            if ($maBci === '') {
+                continue;
+            }
+
+            if ($oldDb->table('BaoCaoI')->where('MaBCI', $maBci)->exists()) {
+                continue;
+            }
+
+            $payload = $this->onlyColumns((array) $row, $cols);
+            $payload['MaBCI'] = $maBci;
+            $payload['MaKH'] = $maKhoaHocDich;
+            if ($maCsdt !== '') {
+                $payload['MaCSDT'] = $maCsdt;
+            }
+
+            $payload = $this->clipPayloadToOldColumnLengths('BaoCaoI', $payload);
+
+            $oldDb->table('BaoCaoI')->insert($payload);
+            $inserted++;
+        }
+
+        return $inserted;
+    }
+
+    private function countBaoCaoIOnSource(string $maKhoaHoc): int
+    {
+        if (! Schema::connection('sqlsrv_moto')->hasTable('BaoCaoI')) {
+            return 0;
+        }
+
+        return (int) DB::connection('sqlsrv_moto')
+            ->table('BaoCaoI')
+            ->where('MaKH', $maKhoaHoc)
+            ->count();
+    }
+
+    private function countBaoCaoIOnTarget(string $maKhoaHoc): int
+    {
+        if (! Schema::connection('sqlsrv_moto_old')->hasTable('BaoCaoI')) {
+            return 0;
+        }
+
+        return (int) DB::connection('sqlsrv_moto_old')
+            ->table('BaoCaoI')
+            ->where('MaKH', $maKhoaHoc)
+            ->count();
     }
 
     /**

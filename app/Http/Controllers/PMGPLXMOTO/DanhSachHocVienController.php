@@ -158,10 +158,13 @@ class DanhSachHocVienController extends Controller
             return back()->withInput()->with('error', 'Đồng bộ thất bại: '.$e->getMessage());
         }
 
-        if (($result['inserted'] ?? 0) + ($result['updated'] ?? 0) === 0) {
+        $hvSynced = ($result['inserted'] ?? 0) + ($result['updated'] ?? 0);
+        if ($hvSynced === 0 && ($result['bao_cao_i_inserted'] ?? 0) === 0) {
             $message = $result['failed'] > 0
                 ? "Không có học viên nào được đồng bộ — {$result['failed']} lỗi."
-                : 'Không có học viên nào được đồng bộ.';
+                : (($result['skipped'] ?? 0) > 0
+                    ? 'Không thêm học viên mới (đã tồn tại trên bản cũ).'
+                    : 'Không có học viên nào được đồng bộ.');
 
             return redirect()
                 ->route('pmgplxmoto.dm.hoc-vien.dong-bo.form', [
@@ -181,18 +184,21 @@ class DanhSachHocVienController extends Controller
         if (($result['inserted'] ?? 0) > 0) {
             $detail[] = "thêm mới {$result['inserted']}";
         }
-        if (($result['updated'] ?? 0) > 0) {
-            $detail[] = "cập nhật {$result['updated']}";
+        if (($result['skipped'] ?? 0) > 0) {
+            $detail[] = "bỏ qua (đã có) {$result['skipped']}";
         }
         if (($result['failed'] ?? 0) > 0) {
             $detail[] = "lỗi {$result['failed']}";
+        }
+        if (($result['bao_cao_i_inserted'] ?? 0) > 0) {
+            $detail[] = "BaoCaoI {$result['bao_cao_i_inserted']}";
         }
 
         $message = "Đã đồng bộ {$synced} học viên từ khóa {$maKhNguon} sang khóa {$maKhDich} trên bản cũ";
         if ($detail !== []) {
             $message .= ' ('.implode(', ', $detail).')';
         }
-        $message .= '. Bao gồm NguoiLX và NguoiLX_HoSo (quy tắc giống COPY_DATA_GPLX). Có thể dùng Khôi phục để xóa lại trên bản cũ.';
+        $message .= '. Cột & luồng giống sql/03-copy-khoa-hoc-makh-dich (BaoCaoI + NguoiLX + NguoiLX_HoSo; chỉ INSERT nếu chưa có MaDK/MaBCI). Có thể Khôi phục để xóa học viên đã đồng bộ.';
 
         return redirect()
             ->route('pmgplxmoto.dm.hoc-vien.dong-bo.form', [
