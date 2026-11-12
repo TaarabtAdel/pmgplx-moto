@@ -10,7 +10,6 @@ use App\Support\PMGPLX\DmDvhcTenDayDu;
 use App\Support\PMGPLX\DonViCapGPLXBanCu;
 use App\Support\PMGPLX\DonViGtvtBanCu;
 use App\Support\PMGPLX\MaDkBanCu;
-use App\Support\PMGPLX\SoGiayCntnBanCu;
 use App\Support\PMGPLXMOTO\DuongDanAnhPmGplx;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
@@ -81,10 +80,6 @@ class DongBoHocVienBanCuService
             $soGplx = trim((string) ($row->SoGPLXDaCo ?? ''));
             $donViCapGoc = trim((string) ($row->DonViCapGPLXDaCo ?? ''));
             $dvcTuSoGplx = DonViCapGPLXBanCu::prefixFromSoGPLX($soGplx);
-            $donViCapBanCu = DonViCapGPLXBanCu::mapForOldSoftware(
-                $soGplx !== '' ? $soGplx : null,
-                $row->NgayTTGPLXDaCo
-            );
 
             $duongDanAnh = trim((string) ($row->DuongDanAnh ?? ''));
 
@@ -120,8 +115,8 @@ class DongBoHocVienBanCuService
                 'ngay_tt_sau_moc' => DonViCapGPLXBanCu::isNgayTTAfterCutoff($row->NgayTTGPLXDaCo),
                 'dvc_tu_so_gplx' => $dvcTuSoGplx,
                 'don_vi_cap_gplx_da_co_goc' => $donViCapGoc,
-                'don_vi_cap_gplx_da_co' => $donViCapBanCu,
-                'don_vi_cap_doi' => $donViCapBanCu !== '' && $donViCapBanCu !== $donViCapGoc,
+                'don_vi_cap_gplx_da_co' => $donViCapGoc,
+                'don_vi_cap_doi' => false,
                 'hang_gplx' => $row->HangGPLX,
                 'duong_danh_anh' => $duongDanAnh,
                 'anh_url' => DuongDanAnhPmGplx::previewUrl($duongDanAnh !== '' ? $duongDanAnh : null),
@@ -246,15 +241,10 @@ class DongBoHocVienBanCuService
 
         $maDks = $students->pluck('MaDK')->all();
 
-        [$colsNguoi, $colsHoSo, $colsGiayTo] = $this->mappableColumns();
+        [$colsNguoi, $colsHoSo] = $this->mappableColumns();
 
         $nguoiRows = NguoiLX::query()->whereIn('MaDK', $maDks)->get()->keyBy('MaDK');
         $hoSoRows = NguoiLXHoSo::query()->whereIn('MaDK', $maDks)->get()->keyBy('MaDK');
-        $giayToRows = DB::connection('sqlsrv_moto')
-            ->table('NguoiLXHS_GiayTo')
-            ->whereIn('MaDK', $maDks)
-            ->get()
-            ->groupBy('MaDK');
 
         $oldDb = DB::connection('sqlsrv_moto_old');
         $inserted = 0;
@@ -291,14 +281,6 @@ class DongBoHocVienBanCuService
                     $payloadHoSo = $this->onlyColumns($hoSo->getAttributes(), $colsHoSo);
                     $payloadHoSo['MaDK'] = $targetMaDk;
                     $payloadHoSo['MaKhoaHoc'] = $maKhoaHocDich;
-                    $payloadHoSo = $this->mapHoSoPayloadForBanCu($payloadHoSo);
-                    $payloadHoSo = $this->mapHoSoEmbeddedCodes(
-                        $payloadHoSo,
-                        (string) $sourceMaDk,
-                        $targetMaDk,
-                        $maKhoaHocNguon,
-                        $maKhoaHocDich
-                    );
                 }
 
                 [$payloadNguoi, $payloadHoSo] = DonViGtvtBanCu::applyFromKhoaHocDich(
@@ -312,13 +294,6 @@ class DongBoHocVienBanCuService
                 if ($payloadHoSo !== null) {
                     $oldDb->table('NguoiLX_HoSo')->updateOrInsert(['MaDK' => $targetMaDk], $payloadHoSo);
                 }
-
-                $this->syncGiayToRows(
-                    $oldDb,
-                    $giayToRows->get($sourceMaDk, collect()),
-                    $targetMaDk,
-                    $colsGiayTo
-                );
 
                 $syncedMaDks[] = $targetMaDk;
                 $exists ? $updated++ : $inserted++;
@@ -426,97 +401,27 @@ class DongBoHocVienBanCuService
 
     /**
      * Cột dùng khi copy sang bản cũ (giao 2 DB, bỏ cột IDENTITY trên sqlsrv_old).
+     * Quy tắc giống COPY_DATA_GPLX: chỉ map mã ĐK + đơn vị theo khóa đích; hồ sơ copy nguyên.
      *
-     * @return array{0: list<string>, 1: list<string>, 2: list<string>}
+     * @return array{0: list<string>, 1: list<string>}
      */
     public function mappableColumns(): array
     {
         return [
             $this->commonColumns('NguoiLX'),
             $this->commonColumns('NguoiLX_HoSo'),
-            $this->commonColumns('NguoiLXHS_GiayTo'),
         ];
     }
 
     /**
+     * Giữ tương thích chỗ gọi cũ — không biến đổi cột hồ sơ.
+     *
      * @param  array<string, mixed>  $payload
      * @return array<string, mixed>
      */
     public function mapHoSoPayloadForBanCu(array $payload): array
     {
-        if (array_key_exists('DonViCapGPLXDaCo', $payload)) {
-            $payload['DonViCapGPLXDaCo'] = DonViCapGPLXBanCu::mapForOldSoftware(
-                isset($payload['SoGPLXDaCo']) ? (string) $payload['SoGPLXDaCo'] : null,
-                $payload['NgayTTGPLXDaCo'] ?? null
-            );
-        }
-
-        if (array_key_exists('SoGiayCNTN', $payload)) {
-            $maDk = (string) ($payload['MaDK'] ?? '');
-            if ($maDk !== '') {
-                $mapped = SoGiayCntnBanCu::mapForOldSoftware(
-                    isset($payload['SoGiayCNTN']) ? (string) $payload['SoGiayCNTN'] : null,
-                    $maDk
-                );
-                if ($mapped !== null) {
-                    $payload['SoGiayCNTN'] = $mapped;
-                }
-            }
-        }
-
         return $payload;
-    }
-
-    /**
-     * @param  array<string, mixed>  $payload
-     * @return array<string, mixed>
-     */
-    private function mapHoSoEmbeddedCodes(
-        array $payload,
-        string $sourceMaDk,
-        string $targetMaDk,
-        string $maKhoaHocNguon,
-        string $maKhoaHocDich
-    ): array {
-        $from = [
-            $sourceMaDk,
-            $maKhoaHocNguon,
-            MaDkBanCu::prefixFromMaKhoaHoc($maKhoaHocNguon),
-        ];
-        $to = [
-            $targetMaDk,
-            $maKhoaHocDich,
-            MaDkBanCu::prefixFromMaKhoaHoc($maKhoaHocDich),
-        ];
-
-        if (array_key_exists('GhiChu', $payload) && $payload['GhiChu'] !== null && $payload['GhiChu'] !== '') {
-            $payload['GhiChu'] = str_replace($from, $to, (string) $payload['GhiChu']);
-        }
-        // DuongDanAnh: giữ nguyên đường dẫn ảnh trên bản mới (không thay MaDK / mã khóa trong path).
-
-        return $payload;
-    }
-
-    /**
-     * @param  \Illuminate\Support\Collection<int, object>  $rows
-     * @param  list<string>  $columns
-     */
-    private function syncGiayToRows($oldDb, Collection $rows, string $targetMaDk, array $columns): void
-    {
-        foreach ($rows as $row) {
-            $payload = $this->onlyColumns((array) $row, $columns);
-            $payload['MaDK'] = $targetMaDk;
-            $maGt = $payload['MaGT'] ?? null;
-
-            if ($maGt === null) {
-                continue;
-            }
-
-            $oldDb->table('NguoiLXHS_GiayTo')->updateOrInsert(
-                ['MaDK' => $targetMaDk, 'MaGT' => $maGt],
-                $payload
-            );
-        }
     }
 
     /**

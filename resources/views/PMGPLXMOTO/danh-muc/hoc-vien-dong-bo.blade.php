@@ -245,18 +245,14 @@
                     <li><strong>NguoiLX</strong> — thông tin cá nhân (họ tên, CMT, ngày sinh…)</li>
                     <li><strong>NguoiLX_HoSo</strong> — hồ sơ khóa học (số hồ sơ, mã khóa, hạng GPLX…)</li>
                     <li><strong>NguoiLX_GPLX</strong> — GPLX đã có (nếu có)</li>
-                    <li><strong>NguoiLXHS_GiayTo</strong> — giấy tờ kèm hồ sơ (đơn, CMT, ảnh…)</li>
                 </ul>
-                Chức năng này copy sang bản cũ <strong>3 bảng: NguoiLX + NguoiLX_HoSo + NguoiLXHS_GiayTo</strong>
-                (mã ĐK và mã khóa được map sang khóa đích; giấy tờ upsert theo khóa <code>MaDK</code> + <code>MaGT</code>).
-                <strong>Ảnh:</strong> <code>DuongDanAnh</code> copy sang bản cũ <strong>giữ nguyên</strong> đường dẫn trên phần mềm mới; chỉ <code>GhiChu</code> (nếu có) được đổi mã ĐK / khóa đích.
-                Bảng xem trước có cột ảnh (cao 18px) — bấm để phóng to. Trên live cấu hình <code>GPLX_ANH_LOCAL_ROOT</code> (map từ UNC <code>ANH GPLX</code>);
-                máy dev không có thư mục ảnh sẽ hiện ô xám <em>N/A</em> nhưng vẫn xem được đường dẫn trong popup.
-                <strong>Đơn vị cấp GPLX</strong> (<code>DonViCapGPLXDaCo</code>) trên bản cũ: nếu <code>NgayTTGPLXDaCo</code> sau 01/03/2025 thì ghi <code>00</code>;
-                trước mốc đó lấy <strong>2 số đầu của <code>SoGPLXDaCo</code></strong> (vd. <code>450190001488</code> → <code>45</code>, <code>440155002955</code> → <code>44</code>).
-                <strong>Chưa</strong> đưa <code>NguoiLX_GPLX</code>
-                và các cột chỉ có trên bản mới (điểm thi, kết quả DAT…).
-                Đủ để hiện danh sách học viên và giấy tờ trên bản cũ; sau đồng bộ có thể dùng <strong>Cập nhật KQĐT bản cũ</strong> nếu cần.
+                Chức năng này copy sang bản cũ <strong>2 bảng: NguoiLX + NguoiLX_HoSo</strong> — cùng quy tắc với <strong>COPY_DATA_GPLX</strong>
+                (không copy Khóa học — bạn <strong>tạo khóa trên phần mềm cũ trước</strong> rồi chọn <strong>mã khóa đích</strong> ở đây).
+                <strong>Map khi ghi:</strong> <code>MaDK</code> (đổi tiền tố khóa), <code>MaCSDT</code> / <code>MaSoGTVT</code> / <code>MaDVNhanHSo</code> / <code>DonViNhanHSo</code> theo khóa đích;
+                <code>MaKhoaHoc</code> = khóa đích; còn lại (hồ sơ, <code>DonViCapGPLXDaCo</code>, <code>DuongDanAnh</code>, cột kết quả nếu có…) <strong>giữ nguyên</strong> từ bản mới.
+                Bảng xem trước có cột ảnh (cao 18px) — bấm để phóng to. Trên live cấu hình <code>GPLX_ANH_LOCAL_ROOT</code> (map từ UNC <code>ANH GPLX</code>).
+                <strong>Chưa</strong> đưa <code>NguoiLXHS_GiayTo</code>, <code>NguoiLX_GPLX</code> và báo cáo khóa (BaoCaoI…).
+                Sau đồng bộ có thể dùng <strong>Cập nhật KQĐT bản cũ</strong> nếu cần.
             </div>
             <div class="alert alert-warning mb-0">
                 <strong>Lưu ý:</strong> Nếu bên <strong>Khóa học đích</strong> chưa có khóa học cần đưa qua thì cần <strong>tạo khóa học trên phần mềm cũ trước</strong>, sau đó quay lại chọn khóa đích và xem trước.
@@ -501,9 +497,8 @@
                                 </table>
                             </div>
                             <div class="small text-muted px-3 py-2 border-top">
-                                <strong>Từ Số GPLX</strong> = 2 số đầu <code>SoGPLXDaCo</code> (44/45…).
-                                <strong>ĐVC bản cũ</strong> = giá trị ghi sang DB cũ (trước 01/03/2025 = Từ Số GPLX; sau mốc = <code>00</code>).
-                                Dòng xanh nhạt: khác <strong>ĐVC hiện tại</strong> trên phần mềm mới.
+                                <strong>Đơn vị cấp</strong> và cột kết quả trên hồ sơ copy nguyên từ phần mềm mới (không đổi theo mốc 01/03/2025).
+                                Cột <strong>ĐVC bản cũ</strong> = giá trị sẽ ghi <code>DonViCapGPLXDaCo</code> trên DB cũ.
                             </div>
                         @endif
                     </div>

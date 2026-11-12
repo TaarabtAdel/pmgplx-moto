@@ -192,7 +192,7 @@ class DanhSachHocVienController extends Controller
         if ($detail !== []) {
             $message .= ' ('.implode(', ', $detail).')';
         }
-        $message .= '. Bao gồm NguoiLX, NguoiLX_HoSo và NguoiLXHS_GiayTo. Có thể dùng Khôi phục để xóa lại trên bản cũ.';
+        $message .= '. Bao gồm NguoiLX và NguoiLX_HoSo (quy tắc giống COPY_DATA_GPLX). Có thể dùng Khôi phục để xóa lại trên bản cũ.';
 
         return redirect()
             ->route('pmgplxmoto.dm.hoc-vien.dong-bo.form', [
@@ -295,7 +295,7 @@ class DanhSachHocVienController extends Controller
             ])
             ->with(
                 'success',
-                "Đã khôi phục: xóa {$result['deleted']} / {$result['total']} học viên khỏi bản cũ (NguoiLX, hồ sơ, giấy tờ — khóa {$batch['ma_kh_dich']})."
+                "Đã khôi phục: xóa {$result['deleted']} / {$result['total']} học viên khỏi bản cũ (NguoiLX + hồ sơ — khóa {$batch['ma_kh_dich']})."
             );
     }
 
@@ -315,7 +315,7 @@ class DanhSachHocVienController extends Controller
             return back()->with('error', 'Không có học viên nào theo bộ lọc để đồng bộ.');
         }
 
-        [$colsNguoi, $colsHoSo, $colsGiayTo] = app(DongBoHocVienBanCuService::class)->mappableColumns();
+        [$colsNguoi, $colsHoSo] = app(DongBoHocVienBanCuService::class)->mappableColumns();
 
         $inserted = 0;
         $updated = 0;
@@ -323,11 +323,6 @@ class DanhSachHocVienController extends Controller
 
         $nguoiRows = NguoiLX::query()->whereIn('MaDK', $maDKs)->get()->keyBy('MaDK');
         $hoSoRows = NguoiLXHoSo::query()->whereIn('MaDK', $maDKs)->get()->keyBy('MaDK');
-        $giayToRows = DB::connection('sqlsrv_moto')
-            ->table('NguoiLXHS_GiayTo')
-            ->whereIn('MaDK', $maDKs)
-            ->get()
-            ->groupBy('MaDK');
 
         $oldDb = DB::connection('sqlsrv_moto_old');
 
@@ -354,17 +349,6 @@ class DanhSachHocVienController extends Controller
                     $oldDb->table('NguoiLX_HoSo')->updateOrInsert(['MaDK' => $maDK], $payloadHoSo);
                 }
 
-                foreach ($giayToRows->get($maDK, collect()) as $giayTo) {
-                    $payloadGiayTo = $this->onlyColumns((array) $giayTo, $colsGiayTo);
-                    $maGt = $payloadGiayTo['MaGT'] ?? null;
-                    if ($maGt === null) {
-                        continue;
-                    }
-                    $oldDb->table('NguoiLXHS_GiayTo')->updateOrInsert(
-                        ['MaDK' => $maDK, 'MaGT' => $maGt],
-                        $payloadGiayTo
-                    );
-                }
             }
 
             $oldDb->commit();
