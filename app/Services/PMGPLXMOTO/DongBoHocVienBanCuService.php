@@ -285,6 +285,7 @@ class DongBoHocVienBanCuService
                 $khoaHocBanCu,
                 $oldDb
             );
+            $this->normalizeBaoCaoIForMaKhDich($maKhoaHocNguon, $maKhoaHocDich, $oldDb);
 
             foreach ($students->values() as $index => $row) {
                 $sourceMaDk = $row->MaDK;
@@ -654,6 +655,7 @@ class DongBoHocVienBanCuService
                 $khoaHocBanCu,
                 $oldDb
             );
+            $this->normalizeBaoCaoIForMaKhDich($maKhoaHocNguon, $maKhoaHocDich, $oldDb);
             $this->alignKhoaHocWithBaoCaoI($maKhoaHocDich, $oldDb);
             $this->refreshTongSoHocVienOnKhoa($maKhoaHocDich, $oldDb);
             $oldDb->commit();
@@ -824,6 +826,66 @@ class DongBoHocVienBanCuService
         }
 
         return [$inserted, $updated];
+    }
+
+    /**
+     * Chuẩn khóa đích như khóa PM tạo tay (vd. 1012): MaBCI = DKKH_{MaKH đích}, SoBaoCao đổi prefix,
+     * BaoCaoI.TrangThai = 1. Không đổi TT_XuLy HV (giữ 09/12 như tool copy 44016).
+     */
+    private function normalizeBaoCaoIForMaKhDich(
+        string $maKhoaHocNguon,
+        string $maKhoaHocDich,
+        \Illuminate\Database\Connection $oldDb
+    ): bool {
+        if (! Schema::connection('sqlsrv_moto_old')->hasTable('BaoCaoI')) {
+            return false;
+        }
+
+        $maKhoaHocDich = trim($maKhoaHocDich);
+        $maKhoaHocNguon = trim($maKhoaHocNguon);
+        if ($maKhoaHocDich === '') {
+            return false;
+        }
+
+        $row = $oldDb->table('BaoCaoI')->where('MaKH', $maKhoaHocDich)->first();
+        if ($row === null) {
+            return false;
+        }
+
+        $dkkhDest = 'DKKH_'.$maKhoaHocDich;
+        $payload = ['TrangThai' => 1];
+
+        $maBci = (string) ($row->MaBCI ?? '');
+        if ($maBci !== $dkkhDest) {
+            $takeover = str_starts_with(strtoupper($maBci), 'DKKH_')
+                || ($maKhoaHocNguon !== '' && str_contains($maBci, $maKhoaHocNguon));
+
+            if ($takeover) {
+                $conflict = $oldDb->table('BaoCaoI')
+                    ->where('MaBCI', $dkkhDest)
+                    ->where('MaKH', '<>', $maKhoaHocDich)
+                    ->exists();
+
+                if (! $conflict) {
+                    $payload['MaBCI'] = $dkkhDest;
+                }
+            }
+        }
+
+        $soBaoCao = (string) ($row->SoBaoCao ?? '');
+        $prefixNguon = MaDkBanCu::prefixFromMaKhoaHoc($maKhoaHocNguon);
+        $prefixDich = MaDkBanCu::prefixFromMaKhoaHoc($maKhoaHocDich);
+        if ($soBaoCao !== '' && $prefixNguon !== '' && $prefixDich !== '' && $prefixNguon !== $prefixDich) {
+            if (str_starts_with($soBaoCao, $prefixNguon)) {
+                $payload['SoBaoCao'] = $prefixDich.substr($soBaoCao, strlen($prefixNguon));
+            }
+        } elseif ($soBaoCao !== '' && $maKhoaHocNguon !== '' && str_contains($soBaoCao, $maKhoaHocNguon)) {
+            $payload['SoBaoCao'] = str_replace($maKhoaHocNguon, $maKhoaHocDich, $soBaoCao);
+        }
+
+        $payload = $this->clipPayloadToOldColumnLengths('BaoCaoI', $payload);
+
+        return $oldDb->table('BaoCaoI')->where('MaKH', $maKhoaHocDich)->update($payload) > 0;
     }
 
     private function countBaoCaoIOnSource(string $maKhoaHoc): int
