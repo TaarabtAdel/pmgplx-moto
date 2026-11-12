@@ -109,16 +109,6 @@ class DongBoHocVienBanCuService
                 $plannedMaDks[] = $mappedMaDk;
             }
 
-            $duongDanAnhDich = ($maKhoaHocDich && $mappedMaDk && $duongDanAnh !== '')
-                ? DuongDanAnhPmGplx::remapForDich(
-                    $duongDanAnh,
-                    (string) $row->MaDK,
-                    $mappedMaDk,
-                    $maKhoaHocNguon,
-                    $maKhoaHocDich
-                )
-                : '';
-
             $planned[] = [
                 'ma_dk' => $mappedMaDk,
                 'ma_dk_nguon' => $row->MaDK,
@@ -133,8 +123,8 @@ class DongBoHocVienBanCuService
                 'don_vi_cap_gplx_da_co' => $donViCapBanCu,
                 'don_vi_cap_doi' => $donViCapBanCu !== '' && $donViCapBanCu !== $donViCapGoc,
                 'hang_gplx' => $row->HangGPLX,
-                'duong_danh_anh' => $duongDanAnhDich,
-                'anh_url' => DuongDanAnhPmGplx::previewUrl($duongDanAnhDich !== '' ? $duongDanAnhDich : null),
+                'duong_danh_anh' => $duongDanAnh,
+                'anh_url' => DuongDanAnhPmGplx::previewUrl($duongDanAnh !== '' ? $duongDanAnh : null),
                 'ton_tai' => false,
             ];
         }
@@ -499,12 +489,10 @@ class DongBoHocVienBanCuService
             MaDkBanCu::prefixFromMaKhoaHoc($maKhoaHocDich),
         ];
 
-        foreach (['DuongDanAnh', 'GhiChu'] as $col) {
-            if (! array_key_exists($col, $payload) || $payload[$col] === null || $payload[$col] === '') {
-                continue;
-            }
-            $payload[$col] = str_replace($from, $to, (string) $payload[$col]);
+        if (array_key_exists('GhiChu', $payload) && $payload['GhiChu'] !== null && $payload['GhiChu'] !== '') {
+            $payload['GhiChu'] = str_replace($from, $to, (string) $payload['GhiChu']);
         }
+        // DuongDanAnh: giữ nguyên đường dẫn ảnh trên bản mới (không thay MaDK / mã khóa trong path).
 
         return $payload;
     }

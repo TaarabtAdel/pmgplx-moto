@@ -249,8 +249,7 @@
                 </ul>
                 Chức năng này copy sang bản cũ <strong>3 bảng: NguoiLX + NguoiLX_HoSo + NguoiLXHS_GiayTo</strong>
                 (mã ĐK và mã khóa được map sang khóa đích; giấy tờ upsert theo khóa <code>MaDK</code> + <code>MaGT</code>).
-                <strong>Ảnh:</strong> <code>DuongDanAnh</code> và <code>GhiChu</code> (nếu là đường dẫn) được đổi theo mã ĐK / mã khóa / tiền tố đích
-                (vd. <code>44016-…</code> → <code>45003-…</code>, thư mục <code>44016…</code> → <code>45003…</code>) để PM cũ mở đúng file ảnh.
+                <strong>Ảnh:</strong> <code>DuongDanAnh</code> copy sang bản cũ <strong>giữ nguyên</strong> đường dẫn trên phần mềm mới; chỉ <code>GhiChu</code> (nếu có) được đổi mã ĐK / khóa đích.
                 Bảng xem trước có cột ảnh (cao 18px) — bấm để phóng to. Trên live cấu hình <code>GPLX_ANH_LOCAL_ROOT</code> (map từ UNC <code>ANH GPLX</code>);
                 máy dev không có thư mục ảnh sẽ hiện ô xám <em>N/A</em> nhưng vẫn xem được đường dẫn trong popup.
                 <strong>Đơn vị cấp GPLX</strong> (<code>DonViCapGPLXDaCo</code>) trên bản cũ: nếu <code>NgayTTGPLXDaCo</code> sau 01/03/2025 thì ghi <code>00</code>;
