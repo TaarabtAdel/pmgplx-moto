@@ -75,16 +75,10 @@
                     </a>
                 </div>
 
-                <a href="{{ route('pmgplxmoto.dm.hoc-vien.export', array_filter([
-                    'tu_khoa' => $filters['tu_khoa'],
-                    'ma_kh' => $filters['ma_kh'],
-                    'hang_gplx' => $filters['hang_gplx'],
-                    'trang_thai' => $filters['trang_thai'],
-                ])) }}"
-                   class="btn btn-sm btn-success mb-2 mr-2"
-                   title="Xuất Excel theo bộ lọc hiện tại — đủ cột NguoiLX và NguoiLX_HoSo">
+                <button type="button" class="btn btn-sm btn-success mb-2 mr-2" data-toggle="modal" data-target="#modalXuatExcelHv"
+                        title="Chọn cột trước khi xuất">
                     ⬇ Xuất Excel ({{ number_format($items->total()) }})
-                </a>
+                </button>
 
                 <div class="ml-auto d-flex flex-wrap align-items-center mb-2">
                     <span class="mr-3">Tổng số bản ghi: <strong>{{ number_format($items->total()) }}</strong></span>
@@ -197,6 +191,14 @@
         </div>
     </div>
 
+    @include('PMGPLXMOTO.danh-muc.partials.hoc-vien-xuat-excel-modal', [
+        'exportRoute' => route('pmgplxmoto.dm.hoc-vien.export'),
+        'filters' => $filters,
+        'exportColumns' => $exportColumns ?? [],
+        'total' => $items->total(),
+        'cotKhacTieuDe' => 'Cột PMGPLX-MOTO khác',
+    ])
+
     <div class="modal fade" id="modalDoThongTin" tabindex="-1" role="dialog" aria-labelledby="modalDoThongTinLabel" aria-hidden="true">
         <div class="modal-dialog modal-xl" role="document">
             <div class="modal-content">
@@ -250,6 +252,7 @@
 @endpush
 
 @push('scripts')
+@include('PMGPLXMOTO.danh-muc.partials.hoc-vien-xuat-excel-scripts')
 <script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.min.js"></script>
 <script src="{{ asset('js/do-thong-tin.js') }}?v={{ filemtime(public_path('js/do-thong-tin.js')) }}"></script>
 <script>

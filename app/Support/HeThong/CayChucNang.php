@@ -2,6 +2,7 @@
 
 namespace App\Support\HeThong;
 
+use App\Support\MenuQldt;
 use Illuminate\Support\Str;
 
 /**
@@ -30,6 +31,9 @@ final class CayChucNang
         $cay = [];
         foreach (self::tinh() as $tab) {
             $cay[] = self::chuanHoa($tab, '');
+        }
+        foreach (config('menu_qldt.tabs', []) as $tabQldt) {
+            $cay[] = self::tabQldt($tabQldt);
         }
 
         return self::$cay = $cay;
@@ -141,12 +145,11 @@ final class CayChucNang
             ];
         }
 
-        return ['khoa' => $khoaTab, 'title' => $tab['title'], 'route' => null, 'active' => [], 'divider' => false, 'children' => $menu1];
+        return ['khoa' => $khoaTab, 'title' => $tab['title'], 'route' => null, 'active' => ['qldtmoto.*'], 'divider' => false, 'children' => $menu1];
     }
 
     /**
-     * Mẫu tên route của một mục QLĐT và mọi mục con: «active» nếu có; route «x.index» → «x.*»;
-     * mục chỉ có «trang» → route trang trắng qldtoto.{slug}.
+     * Mẫu tên route của một mục QLĐT và mọi mục con.
      *
      * @param  array<string, mixed>  $item
      * @return list<string>

@@ -379,7 +379,30 @@
                 <a class="nav-link {{ request()->routeIs('home') ? 'active' : '' }}" href="{{ route('home') }}">Trang chủ</a>
             </li>
             @foreach (\App\Support\HeThong\CayChucNang::cay() as $tabCay)
+                @continue(str_starts_with($tabCay['khoa'], 'qldt-'))
                 @include('PMGPLXMOTO.layouts.partials.menu-tab', ['tab' => $tabCay])
+            @endforeach
+            @foreach (config('menu_qldt.tabs', []) as $tabIndex => $tab)
+                @php $khoaTabQldt = \App\Support\HeThong\CayChucNang::khoaTabQldt($tab); @endphp
+                @continue(! \App\Support\HeThong\PhanQuyenNguoiDung::coQuyen($khoaTabQldt))
+                <li class="nav-item dropdown">
+                    <a class="nav-link dropdown-toggle {{ \App\Support\MenuQldt::dangChon($tab) || request()->routeIs('qldtmoto.index') ? 'active' : '' }}"
+                       href="#"
+                       id="navQldtDropdown{{ $tabIndex }}"
+                       role="button"
+                       data-toggle="dropdown"
+                       aria-haspopup="true"
+                       aria-expanded="false">
+                        {{ $tab['title'] }}
+                    </a>
+                    <div class="dropdown-menu menu-qldt" aria-labelledby="navQldtDropdown{{ $tabIndex }}">
+                        <a class="dropdown-item {{ request()->routeIs('qldtmoto.index') ? 'active' : '' }}" href="{{ route('qldtmoto.index') }}">
+                            Tổng quan các bước
+                        </a>
+                        <div class="dropdown-divider"></div>
+                        @include('PMGPLXMOTO.layouts.partials.menu-con', ['items' => $tab['children'] ?? [], 'khoaCha' => $khoaTabQldt, 'cap' => 1])
+                    </div>
+                </li>
             @endforeach
         </ul>
     </nav>
@@ -412,6 +435,8 @@
         @endif
 
         @yield('content')
+
+        @includeWhen(isset($qldtMotoLichSuXuat), 'QldtMoto.partials.lich-su-xuat-accordion')
 
         <div class="status-bar">
             <span>Tài khoản đăng nhập: {{ auth()->user()?->SoDienThoai ?? '—' }}</span>

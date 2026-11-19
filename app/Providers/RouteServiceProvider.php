@@ -40,6 +40,12 @@ class RouteServiceProvider extends ServiceProvider
 
             Route::middleware($webMiddleware)
                 ->group(base_path('routes/pmgplxmoto.php'));
+
+            Route::middleware(array_merge($webMiddleware, [
+                'qldtmoto.chuan-bi-lich-su-xuat',
+                'qldtmoto.lich-su-xuat',
+            ]))
+                ->group(base_path('routes/qldtmoto.php'));
         });
     }
 }

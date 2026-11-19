@@ -17,8 +17,8 @@
     }
     .hoc-vien-dong-bo-source-scroll.table-responsive > table,
     .hoc-vien-dong-bo-planned-scroll.table-responsive > table {
-        width: 1390px;
-        min-width: 1390px;
+        width: 1500px;
+        min-width: 1500px;
         max-width: none;
         table-layout: fixed;
     }
@@ -114,6 +114,22 @@
     .hoc-vien-dong-bo-row-conflict code {
         color: #856404 !important;
     }
+    .hoc-vien-dong-bo-row-tt-xu-ly {
+        background-color: #ffe8cc !important;
+    }
+    .hoc-vien-dong-bo-preview colgroup col.col-tt-xu-ly {
+        width: 10.5rem;
+    }
+    .hoc-vien-dong-bo-preview .col-tt-xu-ly {
+        font-size: 0.85rem;
+        vertical-align: middle;
+    }
+    .dong-bo-tt-xu-ly-select {
+        max-width: 9.5rem;
+        font-size: 0.8rem;
+        padding: 0.1rem 0.25rem;
+        height: calc(1.5em + 0.35rem);
+    }
     .hoc-vien-dong-bo-preview colgroup col.col-anh {
         width: 28px;
     }
@@ -168,6 +184,9 @@
             ? $maDkNguonTest
             : (($plannedRows[0]['ma_dk_nguon'] ?? null) ?: ($sourceRows[0]['ma_dk'] ?? ''));
         $canTest = $maKhDich !== '' && $maKhNguon !== '' && count($sourceRows) > 0;
+        $ttXuLyHighCount = (int) ($meta['tt_xu_ly_high_count'] ?? 0);
+        $ttXuLyMacDinh = old('tt_xuly_mac_dinh', \App\Support\PMGPLXMOTO\DongBoTtXuLy::CHOICE_KEEP);
+        $ttXuLyPerHv = old('tt_xuly', []);
     @endphp
 
     @if (! empty($lastBatch) && ! empty($lastBatch['ma_dks']))
@@ -248,8 +267,11 @@
                 </ul>
                 Copy sang bản cũ giống <code>PUBLISH_DATA_GPLX/sql/03-copy-khoa-hoc-makh-dich.sql</code>:
                 <strong>BaoCaoI</strong> (nếu có) + <strong>NguoiLX</strong> + <strong>NguoiLX_HoSo</strong> — danh sách cột cố định như script 03.
-                Tạo/chọn <strong>mã khóa đích</strong> trên PM cũ trước. HV + <code>TT_XuLy</code> giữ như tool/copy (vd. <code>09</code>/<code>12</code> — <strong>không</strong> đổi sang <code>03</code>/<code>11</code> kiểu khóa <code>1012</code>).
-                <strong>BaoCaoI đích</strong> được chuẩn hóa: <code>MaBCI</code> → <code>DKKH_{MaKH đích}</code>, <code>SoBaoCao</code> đổi prefix, <code>TrangThai=1</code> (metadata khóa giống khóa PM tạo tay).
+                Tạo/chọn <strong>mã khóa đích</strong> trên PM cũ trước — luồng <strong>mã mới một bước</strong> (giống <code>03-copy-khoa-hoc-makh-dich.sql</code>),
+                không clone <code>MaBCI</code>/<code>MaKH</code> nguồn lên đích (tránh lỗi sau <em>Đổi mã khóa</em>).
+                <code>NguoiLX_HoSo.TT_XuLy</code> copy từ PM mới (mã trong <code>DM_TrangThai</code>).
+                Nếu mã <strong>&gt; 04</strong> (vd. <code>09</code> tốt nghiệp), màn xem trước cảnh báo — chọn <strong>giữ nguyên</strong> hoặc ghi <code>03</code>/<code>04</code> sang bản cũ.
+                <code>BaoCaoI</code> = <code>DKKH_{MaKH đích}</code>, <code>SoBaoCao</code> đổi prefix, <code>TrangThai=1</code>.
                 Map: <code>MaDK</code> prefix; <code>MaKhoaHoc</code>/<code>BaoCaoI.MaKH</code> = khóa đích; <code>DuongDanAnh</code> giữ như nguồn. Cập nhật <code>KhoaHoc</code> từ nguồn (chạy lại được khi HV đã đủ).
                 <strong>Map khi ghi:</strong> <code>MaDK</code> đổi prefix; <code>MaKhoaHoc</code>/<code>BaoCaoI.MaKH</code> = khóa đích;
                 <code>MaCSDT</code> / <code>MaSoGTVT</code> / <code>MaDVNhanHSo</code> / <code>DonViNhanHSo</code> theo khóa đích; học viên có <code>MaDK</code> đúng prefix khóa nguồn.
@@ -351,6 +373,14 @@
             </div>
         @endif
 
+        @if ($maKhDich !== '' && $ttXuLyHighCount > 0)
+            <div class="alert alert-warning mb-3" id="dong-bo-tt-xu-ly-canh-bao">
+                <strong>TT xử lý hồ sơ (<code>NguoiLX_HoSo.TT_XuLy</code>):</strong>
+                {{ number_format($ttXuLyHighCount) }} học viên có mã <strong>lớn hơn 04</strong> trên phần mềm mới (tên trạng thái lấy từ <code>DM_TrangThai</code>).
+                PM cũ thường chỉ cần giai đoạn đầu — trước khi đồng bộ, chọn <strong>mặc định cho cả khóa</strong> hoặc từng dòng cam ở cột <strong>TT ghi bản cũ</strong>.
+            </div>
+        @endif
+
         <div class="row">
             <div class="col-lg-6 mb-3">
                 <div class="card card-panel h-100">
@@ -370,6 +400,7 @@
                                     <col class="col-so-gplx">
                                     <col class="col-don-vi-cap">
                                     <col class="col-hang">
+                                    <col class="col-tt-xu-ly">
                                     <col class="col-anh">
                                 </colgroup>
                                 <thead>
@@ -380,18 +411,25 @@
                                         <th class="col-so-gplx">Số GPLX</th>
                                         <th class="col-don-vi-cap">Đơn vị cấp</th>
                                         <th class="col-hang">Hạng</th>
+                                        <th class="col-tt-xu-ly" title="NguoiLX_HoSo.TT_XuLy — DM_TrangThai">TT xử lý</th>
                                         <th class="col-anh">Ảnh</th>
                                     </tr>
                                 </thead>
                                 <tbody>
                                     @forelse ($sourceRows as $index => $row)
-                                        <tr>
+                                        <tr @class(['hoc-vien-dong-bo-row-tt-xu-ly' => ! empty($row['tt_xu_ly_canh_bao'])])>
                                             <td class="col-stt">{{ $index + 1 }}</td>
                                             <td class="col-ma-dk"><code>{{ $row['ma_dk'] }}</code></td>
                                             <td class="col-ho-ten" title="{{ $row['ho_ten'] }}">{{ $row['ho_ten'] }}</td>
                                             <td class="col-so-gplx" title="{{ $row['so_gplx_da_co'] ?? '' }}">{{ $row['so_gplx_da_co'] ?: '—' }}</td>
                                             <td class="col-don-vi-cap" title="{{ $row['don_vi_cap_hien_thi'] ?? ($row['don_vi_cap_gplx_da_co'] ?? '') }}">{{ $row['don_vi_cap_hien_thi'] ?? ($row['don_vi_cap_gplx_da_co'] ?: '—') }}</td>
                                             <td class="col-hang" title="{{ $row['hang_gplx_hien_thi'] ?? ($row['hang_gplx'] ?? '') }}">{{ $row['hang_gplx_hien_thi'] ?? ($row['hang_gplx'] ?: '—') }}</td>
+                                            <td class="col-tt-xu-ly" title="{{ $row['tt_xu_ly_hien_thi'] ?? '' }}">
+                                                {{ $row['tt_xu_ly_hien_thi'] ?? '—' }}
+                                                @if (! empty($row['tt_xu_ly_canh_bao']))
+                                                    <span class="badge badge-warning d-block mt-1" style="font-size: 0.7rem;">&gt; 04</span>
+                                                @endif
+                                            </td>
                                             <td class="col-anh">
                                                 @include('PMGPLXMOTO.danh-muc._dong-bo-anh-thumb', [
                                                     'anhUrl' => $row['anh_url'] ?? null,
@@ -403,7 +441,7 @@
                                         </tr>
                                     @empty
                                         <tr>
-                                            <td colspan="7" class="text-center py-4">Không có học viên trong khóa nguồn</td>
+                                            <td colspan="8" class="text-center py-4">Không có học viên trong khóa nguồn</td>
                                         </tr>
                                     @endforelse
                                 </tbody>
@@ -436,6 +474,7 @@
                                         <col class="col-dvc-hien-tai">
                                         <col class="col-dvc-ban-cu">
                                         <col class="col-hang">
+                                        <col class="col-tt-xu-ly">
                                         <col class="col-anh">
                                     </colgroup>
                                     <thead>
@@ -448,14 +487,20 @@
                                             <th class="col-dvc-hien-tai">ĐVC hiện tại</th>
                                             <th class="col-dvc-ban-cu">ĐVC bản cũ</th>
                                             <th class="col-hang">Hạng</th>
+                                            <th class="col-tt-xu-ly">TT ghi bản cũ</th>
                                             <th class="col-anh">Ảnh</th>
                                         </tr>
                                     </thead>
                                     <tbody>
                                         @forelse ($plannedRows as $index => $row)
+                                            @php
+                                                $maDkNguonRow = (string) ($row['ma_dk_nguon'] ?? '');
+                                                $ttChoiceRow = $ttXuLyPerHv[$maDkNguonRow] ?? '';
+                                            @endphp
                                             <tr @class([
                                                 'hoc-vien-dong-bo-row-conflict' => ! empty($row['ton_tai']),
                                                 'hoc-vien-dong-bo-row-dvc-doi' => ! empty($row['don_vi_cap_doi']),
+                                                'hoc-vien-dong-bo-row-tt-xu-ly' => ! empty($row['tt_xu_ly_canh_bao']),
                                             ])>
                                                 <td class="col-stt">
                                                     @if (empty($row['ton_tai']))
@@ -490,6 +535,18 @@
                                                     @endif
                                                 </td>
                                                 <td class="col-hang" title="{{ $row['hang_gplx_hien_thi'] ?? ($row['hang_gplx'] ?? '') }}">{{ $row['hang_gplx_hien_thi'] ?? ($row['hang_gplx'] ?: '—') }}</td>
+                                                <td class="col-tt-xu-ly">
+                                                    <span title="{{ $row['tt_xu_ly_nguon_hien_thi'] ?? '' }}">{{ $row['tt_xu_ly_nguon_hien_thi'] ?? '—' }}</span>
+                                                    @if (! empty($row['tt_xu_ly_canh_bao']) && $maDkNguonRow !== '')
+                                                        <select class="form-control form-control-sm dong-bo-tt-xu-ly-per-hv dong-bo-tt-xu-ly-select mt-1"
+                                                                data-ma-dk="{{ $maDkNguonRow }}"
+                                                                data-nguon="{{ \App\Support\PMGPLXMOTO\DongBoTtXuLy::displayCode($row['tt_xu_ly_nguon'] ?? '') }}">
+                                                            <option value="keep" @selected($ttChoiceRow === '' || $ttChoiceRow === 'keep')>Giữ {{ \App\Support\PMGPLXMOTO\DongBoTtXuLy::displayCode($row['tt_xu_ly_nguon'] ?? '') }}</option>
+                                                            <option value="03" @selected($ttChoiceRow === '03')>03 — đã nhận ảnh</option>
+                                                            <option value="04" @selected($ttChoiceRow === '04')>04</option>
+                                                        </select>
+                                                    @endif
+                                                </td>
                                                 <td class="col-anh">
                                                     @include('PMGPLXMOTO.danh-muc._dong-bo-anh-thumb', [
                                                         'anhUrl' => $row['anh_url'] ?? null,
@@ -501,7 +558,7 @@
                                             </tr>
                                         @empty
                                             <tr>
-                                                <td colspan="9" class="text-center py-4">Không có dữ liệu</td>
+                                                <td colspan="10" class="text-center py-4">Không có dữ liệu</td>
                                             </tr>
                                         @endforelse
                                     </tbody>
@@ -528,11 +585,31 @@
         @if ($canTest || $canSync)
             <div class="card card-panel">
                 <div class="card-body">
+                    @if ($ttXuLyHighCount > 0)
+                        <div class="border rounded p-2 mb-3 bg-light" id="dong-bo-tt-xu-ly-mac-dinh">
+                            <div class="small font-weight-bold mb-2">Mặc định <code>TT_XuLy</code> ghi sang bản cũ (áp dụng các dòng &gt; 04 chưa chọn riêng)</div>
+                            <div class="form-check form-check-inline">
+                                <input class="form-check-input" type="radio" name="tt_xuly_mac_dinh" id="tt_xuly_mac_dinh_keep" value="keep"
+                                       @checked($ttXuLyMacDinh === 'keep')>
+                                <label class="form-check-label small" for="tt_xuly_mac_dinh_keep">Giữ nguyên như PM mới</label>
+                            </div>
+                            <div class="form-check form-check-inline">
+                                <input class="form-check-input" type="radio" name="tt_xuly_mac_dinh" id="tt_xuly_mac_dinh_03" value="03"
+                                       @checked($ttXuLyMacDinh === '03')>
+                                <label class="form-check-label small" for="tt_xuly_mac_dinh_03">Ghi <code>03</code> (đã nhận ảnh)</label>
+                            </div>
+                            <div class="form-check form-check-inline">
+                                <input class="form-check-input" type="radio" name="tt_xuly_mac_dinh" id="tt_xuly_mac_dinh_04" value="04"
+                                       @checked($ttXuLyMacDinh === '04')>
+                                <label class="form-check-label small" for="tt_xuly_mac_dinh_04">Ghi <code>04</code></label>
+                            </div>
+                        </div>
+                    @endif
                     <div class="d-flex flex-wrap align-items-center">
                         @if ($canTest)
                             <form method="POST" action="{{ route('pmgplxmoto.dm.hoc-vien.dong-bo.test-mot') }}" class="mb-2 mr-3 d-flex flex-wrap align-items-end"
                                   id="form-test-hoc-vien"
-                                  onsubmit="return confirmDongBoTestMot();">
+                                  onsubmit="return dongBoSubmitWithTtXuLy(this) && confirmDongBoTestMot();">
                                 @csrf
                                 <input type="hidden" name="ma_kh_nguon" value="{{ $maKhNguon }}">
                                 <input type="hidden" name="ma_kh_dich" value="{{ $maKhDich }}">
@@ -553,8 +630,8 @@
                         @endif
 
                         @if ($canSync)
-                            <form method="POST" action="{{ route('pmgplxmoto.dm.hoc-vien.dong-bo.store') }}" class="mb-2 mr-3"
-                                  onsubmit="return confirm('Đồng bộ {{ number_format($syncableCount) }} học viên từ khóa {{ $maKhNguon }} sang khóa {{ $maKhDich }} trên bản cũ?{{ $updateCount > 0 ? '\n'.number_format($updateCount).' học viên sẽ được cập nhật.' : '' }}');">
+                            <form method="POST" action="{{ route('pmgplxmoto.dm.hoc-vien.dong-bo.store') }}" class="mb-2 mr-3" id="form-dong-bo-store"
+                                  onsubmit="return dongBoSubmitWithTtXuLy(this) && confirm('Đồng bộ {{ number_format($syncableCount) }} học viên từ khóa {{ $maKhNguon }} sang khóa {{ $maKhDich }} trên bản cũ?{{ $updateCount > 0 ? '\n'.number_format($updateCount).' học viên sẽ được cập nhật.' : '' }}{{ $ttXuLyHighCount > 0 ? '\n'.number_format($ttXuLyHighCount).' HV có TT_XuLy > 04 — kiểm tra lựa chọn ghi bản cũ.' : '' }}');">
                                 @csrf
                                 <input type="hidden" name="ma_kh_nguon" value="{{ $maKhNguon }}">
                                 <input type="hidden" name="ma_kh_dich" value="{{ $maKhDich }}">
@@ -607,6 +684,26 @@
 
 @push('scripts')
 <script>
+    function dongBoSubmitWithTtXuLy(form) {
+        var $form = $(form);
+        $form.find('input.dong-bo-tt-xu-ly-hidden').remove();
+        var macDinh = $('input[name="tt_xuly_mac_dinh"]:checked').val() || 'keep';
+        $form.append($('<input type="hidden" class="dong-bo-tt-xu-ly-hidden" name="tt_xuly_mac_dinh">').val(macDinh));
+        $('.dong-bo-tt-xu-ly-per-hv').each(function () {
+            var $sel = $(this);
+            var maDk = ($sel.data('ma-dk') || '').toString();
+            if (maDk === '') {
+                return;
+            }
+            $form.append(
+                $('<input type="hidden" class="dong-bo-tt-xu-ly-hidden">')
+                    .attr('name', 'tt_xuly[' + maDk + ']')
+                    .val($sel.val() || 'keep')
+            );
+        });
+        return true;
+    }
+
     function dongBoMoAnhLon(btn) {
         var $btn = $(btn);
         var url = $btn.data('anh-url') || '';

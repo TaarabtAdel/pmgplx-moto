@@ -11,6 +11,7 @@ use App\Support\PMGPLX\DonViCapGPLXBanCu;
 use App\Support\PMGPLX\DonViGtvtBanCu;
 use App\Support\PMGPLX\MaDkBanCu;
 use App\Support\PMGPLXMOTO\CopyBanCuColumnLists;
+use App\Support\PMGPLXMOTO\DongBoTtXuLy;
 use App\Support\PMGPLXMOTO\DuongDanAnhPmGplx;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
@@ -57,6 +58,7 @@ class DongBoHocVienBanCuService
                 'h.MaKhoaHoc',
                 'h.HangGPLX',
                 'h.DuongDanAnh',
+                'h.TT_XuLy',
             ]);
     }
 
@@ -84,6 +86,8 @@ class DongBoHocVienBanCuService
 
             $duongDanAnh = trim((string) ($row->DuongDanAnh ?? ''));
 
+            $ttXuLyNguon = $row->TT_XuLy ?? null;
+
             $source[] = [
                 'ma_dk' => $row->MaDK,
                 'ho_ten' => $hoTen,
@@ -93,6 +97,8 @@ class DongBoHocVienBanCuService
                 'don_vi_cap_gplx_da_co' => $donViCapGoc,
                 'ma_khoa_hoc' => $row->MaKhoaHoc,
                 'hang_gplx' => $row->HangGPLX,
+                'tt_xu_ly' => $ttXuLyNguon,
+                'tt_xu_ly_canh_bao' => DongBoTtXuLy::isGreaterThan04($ttXuLyNguon),
                 'duong_danh_anh' => $duongDanAnh,
                 'anh_url' => DuongDanAnhPmGplx::previewUrl($duongDanAnh),
             ];
@@ -119,6 +125,9 @@ class DongBoHocVienBanCuService
                 'don_vi_cap_gplx_da_co' => $donViCapGoc,
                 'don_vi_cap_doi' => false,
                 'hang_gplx' => $row->HangGPLX,
+                'tt_xu_ly_nguon' => $ttXuLyNguon,
+                'tt_xu_ly_ban_cu' => $ttXuLyNguon,
+                'tt_xu_ly_canh_bao' => DongBoTtXuLy::isGreaterThan04($ttXuLyNguon),
                 'duong_danh_anh' => $duongDanAnh,
                 'anh_url' => DuongDanAnhPmGplx::previewUrl($duongDanAnh !== '' ? $duongDanAnh : null),
                 'ton_tai' => false,
@@ -156,7 +165,13 @@ class DongBoHocVienBanCuService
         $prefixNguon = MaDkBanCu::prefixFromMaKhoaHoc($maKhoaHocNguon);
         $prefixDich = $maKhoaHocDich ? MaDkBanCu::prefixFromMaKhoaHoc($maKhoaHocDich) : null;
 
+        $ttHighCount = count(array_filter(
+            $planned,
+            fn ($row) => ! empty($row['tt_xu_ly_canh_bao'])
+        ));
+
         $this->enrichPreviewDmLabels($source, $planned);
+        $this->enrichPreviewTtXuLyLabels($source, $planned);
 
         return [
             'source' => $source,
@@ -179,6 +194,7 @@ class DongBoHocVienBanCuService
                 'test_student' => $this->firstTestableStudent($planned),
                 'bao_cao_i_nguon' => $baoCaoINguon,
                 'bao_cao_i_dich' => $baoCaoIDich,
+                'tt_xu_ly_high_count' => $ttHighCount,
             ],
         ];
     }
@@ -217,8 +233,16 @@ class DongBoHocVienBanCuService
      *     ho_ten?: string
      * }
      */
-    public function sync(string $maKhoaHocNguon, string $maKhoaHocDich, ?string $onlySourceMaDk = null): array
-    {
+    /**
+     * @param  array<string, mixed>  $ttXuLyPerStudent  MaDK nguồn → keep|03|04
+     */
+    public function sync(
+        string $maKhoaHocNguon,
+        string $maKhoaHocDich,
+        ?string $onlySourceMaDk = null,
+        string $ttXuLyDefault = DongBoTtXuLy::CHOICE_KEEP,
+        array $ttXuLyPerStudent = [],
+    ): array {
         $students = $this->studentsInCourse($maKhoaHocNguon);
 
         if ($onlySourceMaDk !== null) {
@@ -320,6 +344,16 @@ class DongBoHocVienBanCuService
                     $payloadHoSo = $this->onlyColumns($hoSo->getAttributes(), $colsHoSo);
                     $payloadHoSo['MaDK'] = $targetMaDk;
                     $payloadHoSo['MaKhoaHoc'] = $maKhoaHocDich;
+
+                    $choice = DongBoTtXuLy::choiceForSourceMaDk(
+                        (string) $sourceMaDk,
+                        $ttXuLyDefault,
+                        $ttXuLyPerStudent
+                    );
+                    $payloadHoSo['TT_XuLy'] = DongBoTtXuLy::valueForOldDatabase(
+                        $payloadHoSo['TT_XuLy'] ?? null,
+                        $choice
+                    );
                 }
 
                 [$payloadNguoi, $payloadHoSo] = DonViGtvtBanCu::applyFromKhoaHocDich(
@@ -481,6 +515,107 @@ class DongBoHocVienBanCuService
     public function mapHoSoPayloadForBanCu(array $payload): array
     {
         return $payload;
+    }
+
+    /**
+     * @param  list<array<string, mixed>>  $source
+     * @param  list<array<string, mixed>>  $planned
+     */
+    /**
+     * @param  list<array<string, mixed>>  $source
+     * @param  list<array<string, mixed>>  $planned
+     */
+    private function enrichPreviewTtXuLyLabels(array &$source, array &$planned): void
+    {
+        $codes = [];
+        foreach ($source as $row) {
+            if (trim((string) ($row['tt_xu_ly'] ?? '')) !== '') {
+                $codes[] = $row['tt_xu_ly'];
+            }
+        }
+        foreach ($planned as $row) {
+            foreach (['tt_xu_ly_nguon', 'tt_xu_ly_ban_cu'] as $key) {
+                if (trim((string) ($row[$key] ?? '')) !== '') {
+                    $codes[] = $row[$key];
+                }
+            }
+        }
+
+        $labelMap = array_merge(
+            $this->ttXuLyLabelMap($codes, 'sqlsrv_moto'),
+            $this->ttXuLyLabelMap($codes, 'sqlsrv_moto_old')
+        );
+
+        foreach ($source as &$row) {
+            $row['tt_xu_ly_hien_thi'] = $this->formatTtXuLyLabel($row['tt_xu_ly'] ?? null, $labelMap);
+        }
+        unset($row);
+
+        foreach ($planned as &$row) {
+            $row['tt_xu_ly_nguon_hien_thi'] = $this->formatTtXuLyLabel($row['tt_xu_ly_nguon'] ?? null, $labelMap);
+            $row['tt_xu_ly_ban_cu_hien_thi'] = $this->formatTtXuLyLabel($row['tt_xu_ly_ban_cu'] ?? null, $labelMap);
+        }
+        unset($row);
+    }
+
+    /**
+     * @param  list<string>  $maTts
+     * @return array<string, string>
+     */
+    private function ttXuLyLabelMap(array $maTts, string $connection = 'sqlsrv_moto'): array
+    {
+        $lookup = [];
+        foreach ($maTts as $code) {
+            $code = trim((string) $code);
+            if ($code === '') {
+                continue;
+            }
+            $lookup[] = $code;
+            $lookup[] = str_pad($code, 2, '0', STR_PAD_LEFT);
+            if (ctype_digit($code)) {
+                $lookup[] = (string) (int) $code;
+            }
+        }
+        $lookup = array_values(array_unique($lookup));
+        if ($lookup === []) {
+            return [];
+        }
+
+        if (! Schema::connection($connection)->hasTable('DM_TrangThai')) {
+            return [];
+        }
+
+        $out = [];
+        foreach (DB::connection($connection)
+            ->table('DM_TrangThai')
+            ->whereIn('MaTT', $lookup)
+            ->get(['MaTT', 'TenTT']) as $row) {
+            $ten = trim((string) ($row->TenTT ?? ''));
+            if ($ten === '') {
+                continue;
+            }
+            $out[DongBoTtXuLy::displayCode($row->MaTT)] = $ten;
+        }
+
+        return $out;
+    }
+
+    /**
+     * @param  array<string, string>  $map
+     */
+    private function formatTtXuLyLabel(mixed $maTt, array $map): string
+    {
+        $code = DongBoTtXuLy::displayCode($maTt);
+        if ($code === '—') {
+            return '—';
+        }
+
+        $ten = $map[$code] ?? $map[ltrim($code, '0')] ?? '';
+        if ($ten === '') {
+            return $code;
+        }
+
+        return $code.' — '.$ten;
     }
 
     /**
@@ -793,16 +928,26 @@ class DongBoHocVienBanCuService
         $updated = 0;
 
         foreach ($rows as $row) {
-            $maBci = (string) ($row->MaBCI ?? '');
-            if ($maBci === '') {
+            $maBciNguon = (string) ($row->MaBCI ?? '');
+            if ($maBciNguon === '') {
                 continue;
             }
 
             $payload = $this->onlyColumns((array) $row, $cols);
-            unset($payload['MaBCI']);
-            $payload['MaKH'] = $maKhoaHocDich;
             if ($maCsdt !== '') {
                 $payload['MaCSDT'] = $maCsdt;
+            }
+
+            $payload = $this->applyMaKhDichBaoCaoIAttributes($payload, $maKhoaHocNguon, $maKhoaHocDich);
+            $dkkhDest = 'DKKH_'.$maKhoaHocDich;
+
+            if ($maKhoaHocNguon !== $maKhoaHocDich) {
+                if ($this->baoCaoIMaBciConflict($oldDb, $dkkhDest, $maKhoaHocDich)) {
+                    continue;
+                }
+                $payload['MaBCI'] = $dkkhDest;
+            } else {
+                $payload['MaBCI'] = $maBciNguon;
             }
 
             $payload = $this->clipPayloadToOldColumnLengths('BaoCaoI', $payload);
@@ -816,11 +961,6 @@ class DongBoHocVienBanCuService
                 continue;
             }
 
-            if ($oldDb->table('BaoCaoI')->where('MaBCI', $maBci)->exists()) {
-                continue;
-            }
-
-            $payload['MaBCI'] = $maBci;
             $oldDb->table('BaoCaoI')->insert($payload);
             $inserted++;
         }
@@ -829,9 +969,52 @@ class DongBoHocVienBanCuService
     }
 
     /**
-     * Chuẩn khóa đích như khóa PM tạo tay (vd. 1012): MaBCI = DKKH_{MaKH đích}, SoBaoCao đổi prefix,
-     * BaoCaoI.TrangThai = 1. Không đổi TT_XuLy HV (giữ 09/12 như tool copy 44016).
+     * Mã khóa mới một bước: PM như lần đầu tool nhưng MaKH đích (không clone MaBCI nguồn).
+     *
+     * @param  array<string, mixed>  $payload
+     * @return array<string, mixed>
      */
+    private function applyMaKhDichBaoCaoIAttributes(
+        array $payload,
+        string $maKhoaHocNguon,
+        string $maKhoaHocDich
+    ): array {
+        $maKhoaHocDich = trim($maKhoaHocDich);
+        $maKhoaHocNguon = trim($maKhoaHocNguon);
+
+        if ($maKhoaHocDich === '' || $maKhoaHocNguon === '' || $maKhoaHocNguon === $maKhoaHocDich) {
+            return $payload;
+        }
+
+        $payload['MaKH'] = $maKhoaHocDich;
+        $payload['TrangThai'] = 1;
+
+        $soBaoCao = (string) ($payload['SoBaoCao'] ?? '');
+        $prefixNguon = MaDkBanCu::prefixFromMaKhoaHoc($maKhoaHocNguon);
+        $prefixDich = MaDkBanCu::prefixFromMaKhoaHoc($maKhoaHocDich);
+        if ($soBaoCao !== '' && $prefixNguon !== '' && $prefixDich !== '' && $prefixNguon !== $prefixDich) {
+            if (str_starts_with($soBaoCao, $prefixNguon)) {
+                $payload['SoBaoCao'] = $prefixDich.substr($soBaoCao, strlen($prefixNguon));
+            }
+        } elseif ($soBaoCao !== '' && str_contains($soBaoCao, $maKhoaHocNguon)) {
+            $payload['SoBaoCao'] = str_replace($maKhoaHocNguon, $maKhoaHocDich, $soBaoCao);
+        }
+
+        return $payload;
+    }
+
+    private function baoCaoIMaBciConflict(
+        \Illuminate\Database\Connection $oldDb,
+        string $maBci,
+        string $maKhoaHocDich
+    ): bool {
+        return $oldDb->table('BaoCaoI')
+            ->where('MaBCI', $maBci)
+            ->where('MaKH', '<>', $maKhoaHocDich)
+            ->exists();
+    }
+
+    /** Bổ sung khi đã ghi BC I với MaBCI cũ (đồng bộ / sửa tay). */
     private function normalizeBaoCaoIForMaKhDich(
         string $maKhoaHocNguon,
         string $maKhoaHocDich,
@@ -842,7 +1025,6 @@ class DongBoHocVienBanCuService
         }
 
         $maKhoaHocDich = trim($maKhoaHocDich);
-        $maKhoaHocNguon = trim($maKhoaHocNguon);
         if ($maKhoaHocDich === '') {
             return false;
         }
@@ -853,36 +1035,16 @@ class DongBoHocVienBanCuService
         }
 
         $dkkhDest = 'DKKH_'.$maKhoaHocDich;
-        $payload = ['TrangThai' => 1];
-
-        $maBci = (string) ($row->MaBCI ?? '');
-        if ($maBci !== $dkkhDest) {
-            $takeover = str_starts_with(strtoupper($maBci), 'DKKH_')
-                || ($maKhoaHocNguon !== '' && str_contains($maBci, $maKhoaHocNguon));
-
-            if ($takeover) {
-                $conflict = $oldDb->table('BaoCaoI')
-                    ->where('MaBCI', $dkkhDest)
-                    ->where('MaKH', '<>', $maKhoaHocDich)
-                    ->exists();
-
-                if (! $conflict) {
-                    $payload['MaBCI'] = $dkkhDest;
-                }
-            }
+        if ((string) ($row->MaBCI ?? '') === $dkkhDest) {
+            return false;
         }
 
-        $soBaoCao = (string) ($row->SoBaoCao ?? '');
-        $prefixNguon = MaDkBanCu::prefixFromMaKhoaHoc($maKhoaHocNguon);
-        $prefixDich = MaDkBanCu::prefixFromMaKhoaHoc($maKhoaHocDich);
-        if ($soBaoCao !== '' && $prefixNguon !== '' && $prefixDich !== '' && $prefixNguon !== $prefixDich) {
-            if (str_starts_with($soBaoCao, $prefixNguon)) {
-                $payload['SoBaoCao'] = $prefixDich.substr($soBaoCao, strlen($prefixNguon));
-            }
-        } elseif ($soBaoCao !== '' && $maKhoaHocNguon !== '' && str_contains($soBaoCao, $maKhoaHocNguon)) {
-            $payload['SoBaoCao'] = str_replace($maKhoaHocNguon, $maKhoaHocDich, $soBaoCao);
+        if ($this->baoCaoIMaBciConflict($oldDb, $dkkhDest, $maKhoaHocDich)) {
+            return false;
         }
 
+        $payload = $this->applyMaKhDichBaoCaoIAttributes((array) $row, $maKhoaHocNguon, $maKhoaHocDich);
+        $payload['MaBCI'] = $dkkhDest;
         $payload = $this->clipPayloadToOldColumnLengths('BaoCaoI', $payload);
 
         return $oldDb->table('BaoCaoI')->where('MaKH', $maKhoaHocDich)->update($payload) > 0;

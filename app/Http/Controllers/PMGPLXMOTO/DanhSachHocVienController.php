@@ -9,7 +9,11 @@ use App\Models\PMGPLXMOTO\NguoiLX;
 use App\Models\PMGPLXMOTO\NguoiLXHoSo;
 use App\Models\PMGPLXMOTOOLD\KhoaHoc as KhoaHocOld;
 use App\Services\PMGPLXMOTO\DongBoHocVienBanCuService;
+use App\Support\PMGPLXMOTO\DongBoTtXuLy;
 use App\Support\PMGPLX\DanhMucBangExcelExporter;
+use App\Support\PMGPLX\DanhSachHocVienExcelRows;
+use App\Support\PMGPLX\DanhSachHocVienExportColumns;
+use App\Support\PMGPLX\DanhSachHocVienFilter;
 use App\Support\PMGPLX\DmDvhcTenDayDu;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\RedirectResponse;
@@ -55,6 +59,7 @@ class DanhSachHocVienController extends Controller
             'noiThuongTru' => $noiThuongTru,
             'daDo' => $daDo,
             'khoaHocs' => $khoaHocs,
+            'exportColumns' => DanhSachHocVienExportColumns::forModal(),
             'filters' => [
                 'tu_khoa' => $request->input('tu_khoa', ''),
                 'ma_kh' => $request->input('ma_kh', ''),
@@ -67,23 +72,33 @@ class DanhSachHocVienController extends Controller
 
     public function export(Request $request): StreamedResponse
     {
-        [$columns, $selects] = $this->exportColumnSelects();
-        $rawRows = $this->filteredQuery($request, $selects)
+        $keys = DanhSachHocVienExportColumns::sanitize($request->input('cols'));
+        $hasRaw = (bool) array_filter($keys, fn (string $k) => str_contains($k, '.'));
+
+        $query = DanhSachHocVienFilter::query($request);
+        if ($hasRaw) {
+            [, $selects] = DanhSachHocVienFilter::exportColumnSelects();
+            $query = DanhSachHocVienFilter::query($request, $selects);
+        }
+
+        $rawRows = $query
             ->orderByRaw('n.TenNLX COLLATE Vietnamese_CI_AS ASC')
             ->orderByRaw('n.HoDemNLX COLLATE Vietnamese_CI_AS ASC')
             ->orderBy('n.MaDK')
             ->get();
 
-        $rows = $rawRows->map(function ($row) use ($columns): array {
+        $labels = DanhSachHocVienExportColumns::labelsFor($keys);
+        $built = DanhSachHocVienExcelRows::build($keys, $rawRows);
+        $rows = array_map(function (array $row) use ($keys, $labels): array {
             $out = [];
-            foreach ($columns as $col) {
-                $out[$col] = $row->{$col} ?? null;
+            foreach ($keys as $i => $key) {
+                $out[$labels[$i]] = $row[$key] ?? null;
             }
 
             return $out;
-        })->all();
+        }, $built);
 
-        $title = 'Danh mục học viên (NguoiLX + NguoiLX_HoSo)';
+        $title = 'Danh mục học viên';
         if ($maKh = trim((string) $request->input('ma_kh'))) {
             $title .= ' · khóa '.$maKh;
         }
@@ -91,7 +106,7 @@ class DanhSachHocVienController extends Controller
         return DanhMucBangExcelExporter::downloadFromArrays(
             $title,
             'danh-muc-hoc-vien',
-            $columns,
+            $labels,
             $rows,
         );
     }
@@ -150,8 +165,10 @@ class DanhSachHocVienController extends Controller
             return back()->withInput()->with('error', 'Mã khóa học nguồn không tồn tại.');
         }
 
+        [$ttXuLyDefault, $ttXuLyPerStudent] = $this->ttXuLyChoicesFromRequest($request);
+
         try {
-            $result = $service->sync($maKhNguon, $maKhDich);
+            $result = $service->sync($maKhNguon, $maKhDich, null, $ttXuLyDefault, $ttXuLyPerStudent);
         } catch (\InvalidArgumentException $e) {
             return back()->withInput()->with('error', $e->getMessage());
         } catch (\Throwable $e) {
@@ -246,8 +263,10 @@ class DanhSachHocVienController extends Controller
                 ->with('error', "Mã ĐK «{$maDkNguon}» không thuộc khóa nguồn {$maKhNguon}.");
         }
 
+        [$ttXuLyDefault, $ttXuLyPerStudent] = $this->ttXuLyChoicesFromRequest($request);
+
         try {
-            $result = $service->sync($maKhNguon, $maKhDich, $maDkNguon);
+            $result = $service->sync($maKhNguon, $maKhDich, $maDkNguon, $ttXuLyDefault, $ttXuLyPerStudent);
         } catch (\InvalidArgumentException $e) {
             return back()->withInput()->with('error', $e->getMessage());
         } catch (\Throwable $e) {
@@ -489,5 +508,26 @@ class DanhSachHocVienController extends Controller
         }
 
         return $out;
+    }
+
+    /**
+     * @return array{0: string, 1: array<string, string>}
+     */
+    private function ttXuLyChoicesFromRequest(Request $request): array
+    {
+        $default = DongBoTtXuLy::sanitizeChoice($request->input('tt_xuly_mac_dinh', DongBoTtXuLy::CHOICE_KEEP));
+        $raw = $request->input('tt_xuly', []);
+        $perStudent = [];
+        if (is_array($raw)) {
+            foreach ($raw as $maDk => $choice) {
+                $maDk = trim((string) $maDk);
+                if ($maDk === '') {
+                    continue;
+                }
+                $perStudent[$maDk] = DongBoTtXuLy::sanitizeChoice((string) $choice);
+            }
+        }
+
+        return [$default, $perStudent];
     }
 }

@@ -1,0 +1,36 @@
+<?php
+
+use App\Http\Controllers\QldtMoto\BaoCaoDangKyController;
+use App\Http\Controllers\QldtMoto\BienBanXacNhanPhoBienNoiQuyController;
+use App\Http\Controllers\QldtMoto\BaoCaoDeNghiSatHachController;
+use App\Http\Controllers\QldtMoto\BienBanPhanCongToChamController;
+use App\Http\Controllers\QldtMoto\DanhSachHocSinhLaiXeController;
+use App\Http\Controllers\QldtMoto\HopDongDaoTaoLaiXeController;
+use App\Http\Controllers\QldtMoto\KeHoachDaoTaoController;
+use App\Http\Controllers\QldtMoto\LamLichChinhThucController;
+use App\Http\Controllers\QldtMoto\LichHocLyThuyetThucHanhController;
+use App\Http\Controllers\QldtMoto\LichHocLyThuyetThucHanhTungGiaoVienController;
+use App\Http\Controllers\QldtMoto\QuyetDinhThanhLapLopHocController;
+use App\Http\Controllers\QldtMoto\QuyetDinhThoiHocController;
+use App\Http\Controllers\QldtMoto\QuyetDinhToChucKiemTraBbPhanCongController;
+use App\Http\Controllers\QldtMoto\SoPhanCongGvXeTapLaiController;
+use App\Http\Controllers\QldtMoto\QuyetDinhBaoLuuController;
+use App\Http\Controllers\QldtMoto\QuyetDinhDieuDongXeController;
+use App\Http\Controllers\QldtMoto\QuyetDinhDoiGiaoVienController;
+use App\Http\Controllers\QldtMoto\QuyetDinhDoiXeController;
+use App\Http\Controllers\QldtMoto\QuyetDinhHoanThanhKhoaHocController;
+use App\Http\Controllers\QldtMoto\BaoCaoPhienHocLoiController;
+use App\Http\Controllers\QldtMoto\QuyetDinhHuyPhienController;
+use App\Http\Controllers\QldtMoto\SoTheoDoiKetQuaHocTapController;
+use App\Http\Controllers\QldtMoto\SoTayGiaoVienLyThuyetController;
+use App\Http\Controllers\QldtMoto\SoTayGiaoVienThucHanhController;
+use App\Http\Controllers\QldtMoto\ThanhLapHoiDongXetKtmController;
+use App\Http\Controllers\QldtMoto\CauHinhBaiDayController;
+use App\Http\Controllers\QldtMoto\LichDuKien\ThucHanhController;
+use App\Http\Controllers\QldtMoto\ThongBaoKiemTraKetThucMonController;
+use App\Http\Controllers\QldtMoto\ThongBaoTapTrungThucHanhController;
+use App\Http\Controllers\QldtMoto\TrangController;
+use App\Http\Controllers\QldtMoto\XuatBaoCaoKtmController;
+use App\Models\QldtMoto\BaiDay;
+use App\Support\MenuQldt;
+use Illuminate\Support\Facades\Route;

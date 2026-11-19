@@ -1,8 +1,9 @@
 # KHGPLX — PMGPLX-MOTO (ứng dụng riêng)
 
-Bản tách từ `laravel/`, **chỉ** tab **PMGPLX-MOTO**:
+Bản tách từ `laravel/`, **PMGPLX-MOTO** + **QLĐT XE MÁY** (`/qldt-moto`):
 
 - Quản lý giáo viên, học viên, xe, khoá học (bản mới)
+- Menu QLĐT theo mindnote «Chuẩn bị cho 1 khoá XE MÁY» (`config/menu_qldt.php`)
 - Học viên bản cũ (`pmgplxmotoold`)
 - Đồng bộ học viên sang bản cũ, nhập từ file, dò thông tin CCCD/GPLX
 

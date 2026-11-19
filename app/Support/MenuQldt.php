@@ -5,7 +5,7 @@ namespace App\Support;
 /** Đọc menu QLĐT (config/menu_qldt.php): URL, mục đang chọn, tìm trang theo slug. */
 final class MenuQldt
 {
-    public const ROUTE_PREFIX = 'qldtoto.';
+    public const ROUTE_PREFIX = 'qldtmoto.';
 
     /** @param  array<string, mixed>  $item */
     public static function dangChon(array $item): bool
@@ -42,7 +42,11 @@ final class MenuQldt
     {
         $routeName = self::routeName($item);
         if ($routeName !== null) {
-            return route($routeName);
+            if (\Illuminate\Support\Facades\Route::has($routeName)) {
+                return route($routeName);
+            }
+
+            return '#';
         }
 
         return (string) ($item['url'] ?? '#');
