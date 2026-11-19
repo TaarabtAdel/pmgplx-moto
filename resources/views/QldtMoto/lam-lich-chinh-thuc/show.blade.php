@@ -24,73 +24,68 @@
             @endif
         </div>
         <div class="card-body">
-            <div class="form-row small text-muted mb-2">
-                <div class="col-md-3">BĐ TH: <strong class="text-dark">{{ $lich->NgayBatDauThucHanh?->format('d/m/Y') }}</strong></div>
-                <div class="col-md-3">Xe tự động: <strong class="text-dark">{{ $lich->XeTuDong ?: '—' }}</strong></div>
-                <div class="col-md-3">
-                    Lưu PM lần cuối:
-                    <strong class="text-dark">{{ $lich->NgayLuuPm?->format('d/m/Y H:i') ?? 'Chưa' }}</strong>
-                    @if ($lich->SoBuoiLuuPm)
-                        <span>({{ $lich->SoBuoiLuuPm }} buổi)</span>
-                    @endif
-                </div>
+            <div class="form-row small text-muted mb-3">
+                <div class="col-md-4">BĐ thực hành: <strong class="text-dark">{{ $lich->NgayBatDauThucHanh?->format('d/m/Y') }}</strong></div>
             </div>
+
+            @include('QldtMoto.lam-lich-chinh-thuc.partials.thong-tin-khoa', ['khoa' => $khoa])
 
             <form method="POST" action="{{ route('qldtmoto.lam-lich-chinh-thuc.update-ma-kh', $lich) }}" class="form-row align-items-end mb-0">
                 @csrf
                 @method('PUT')
                 <div class="form-group col-md-5 mb-0">
-                    <label for="ma_kh">Mã khoá PMGPLX (khi lưu vào phần mềm)</label>
+                    <label for="ma_kh">Liên kết khoá PMGPLX-MOTO (chỉ đọc KG / BG)</label>
                     <select class="form-control form-control-sm sel-khoa-pmgplx" id="ma_kh" name="ma_kh" data-placeholder="— Chọn khoá —">
                         <option value=""></option>
                         @foreach ($khoaOptions as $kh)
-                            <option value="{{ $kh->MaKH }}" @selected(old('ma_kh', $lich->MaKH) === $kh->MaKH)>
+                            <option value="{{ $kh->MaKH }}" @selected(old('ma_kh', $lich->MaKH) === $kh->MaKH)
+                                    data-kg="{{ $kh->NgayKG?->format('d/m/Y') }}"
+                                    data-bg="{{ $kh->NgayBG?->format('d/m/Y') }}">
                                 {{ $kh->TenKH }} ({{ $kh->MaKH }})
+                                @if ($kh->NgayKG)
+                                    · KG {{ $kh->NgayKG->format('d/m/Y') }}
+                                @endif
+                                @if ($kh->NgayBG)
+                                    · BG {{ $kh->NgayBG->format('d/m/Y') }}
+                                @endif
                             </option>
                         @endforeach
                     </select>
                 </div>
                 <div class="form-group col-md-2 mb-0">
-                    <button type="submit" class="btn btn-sm btn-outline-primary btn-block">Lưu mã khoá</button>
+                    <button type="submit" class="btn btn-sm btn-outline-primary btn-block">Lưu liên kết</button>
                 </div>
             </form>
         </div>
     </div>
 
-    @include('QldtMoto.lam-lich-chinh-thuc.partials.bang-lich', [
-        'lich' => $lich,
-        'bangLich' => $bangLich,
-        'coKeoThuTu' => true,
-    ])
-
-    <div class="card card-panel mt-3">
-        <div class="card-header">Xuất Excel &amp; lưu vào phần mềm</div>
-        <div class="card-body">
-            <div class="d-flex flex-wrap align-items-center gap-2">
+    @if ($donGian)
+        @include('QldtMoto.lich-du-kien.thuc-hanh.partials.bang-lich', [
+            'lich' => $lich,
+            'bangLich' => $bangLich,
+            'hangOptions' => $hangOptions,
+            'cardTitle' => 'Lịch chính thức — in / Excel',
+            'exportUrl' => route('qldtmoto.lam-lich-chinh-thuc.export-excel', $lich),
+        ])
+    @else
+        @include('QldtMoto.lam-lich-chinh-thuc.partials.bang-lich', [
+            'lich' => $lich,
+            'bangLich' => $bangLich,
+            'coKeoThuTu' => true,
+        ])
+        <div class="card card-panel mt-3">
+            <div class="card-header">Xuất Excel</div>
+            <div class="card-body">
                 <a href="{{ route('qldtmoto.lam-lich-chinh-thuc.export-excel', $lich) }}" class="btn btn-sm btn-outline-success">
                     Xuất Excel (mẫu nhập lịch)
                 </a>
-                <form method="POST" action="{{ route('qldtmoto.lam-lich-chinh-thuc.luu-vao-phan-mem', $lich) }}" class="d-inline"
-                      onsubmit="return confirm('Lưu lịch vào PMGPLX cho khoá {{ $lich->MaKH ?: '…' }}?\nLịch thực hành (IsKhoaHoc*=0) hiện có của khoá sẽ bị xoá rồi ghi lại.');">
-                    @csrf
-                    <input type="hidden" name="ma_kh" value="{{ $lich->MaKH }}">
-                    <button type="submit" class="btn btn-sm btn-navy" @disabled(! $lich->MaKH)>
-                        Lưu vào phần mềm
-                    </button>
-                </form>
-                @unless ($lich->MaKH)
-                    <span class="small text-danger">Chọn và lưu mã khoá PMGPLX ở trên trước.</span>
-                @endunless
             </div>
-            <p class="small text-muted mt-2 mb-0">
-                «Lưu vào phần mềm» ghi vào <code>KhoaHoc_GiaoVien</code> / <code>KhoaHoc_XeTap</code>
-                (cùng kiểu nhập từ file Excel tại /pmgplx/lich/nhap-tu-file).
-            </p>
         </div>
-    </div>
+    @endif
 @endsection
 
 @push('scripts')
+@if (! $donGian)
 <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.3/Sortable.min.js"></script>
 <script>
 (function ($) {
@@ -157,4 +152,19 @@
     capNhatInputAn();
 })(jQuery);
 </script>
+@else
+<script>
+(function ($) {
+    var $kh = $('#ma_kh');
+    if ($kh.length) {
+        $kh.select2({
+            theme: 'bootstrap4',
+            width: '100%',
+            allowClear: true,
+            placeholder: $kh.data('placeholder') || '—'
+        });
+    }
+})(jQuery);
+</script>
+@endif
 @endpush

@@ -29,6 +29,10 @@ use App\Http\Controllers\QldtMoto\CauHinhBaiDayController;
 use App\Http\Controllers\QldtMoto\LichDuKien\ThucHanhController;
 use App\Http\Controllers\QldtMoto\ThongBaoKiemTraKetThucMonController;
 use App\Http\Controllers\QldtMoto\ThongBaoTapTrungThucHanhController;
+use App\Http\Controllers\QldtMoto\TaoNhomZaloHocVienController;
+use App\Http\Controllers\QldtMoto\TaiLieuHuongDanHocVienController;
+use App\Http\Controllers\QldtMoto\ThongBaoLichThiChinhThucZaloController;
+use App\Http\Controllers\QldtMoto\ThongBaoLichThiDuKienController;
 use App\Http\Controllers\QldtMoto\TrangController;
 use App\Http\Controllers\QldtMoto\XuatBaoCaoKtmController;
 use App\Models\QldtMoto\BaiDay;
@@ -168,14 +172,18 @@ use Illuminate\Support\Facades\Route;
 
     $slugLamLichChinhThuc = '1-lam-lich-chinh-thuc';
     Route::get('/'.$slugLamLichChinhThuc, [LamLichChinhThucController::class, 'index'])->name('lam-lich-chinh-thuc.index');
-    Route::get('/'.$slugLamLichChinhThuc.'/tao', [LamLichChinhThucController::class, 'create'])->name('lam-lich-chinh-thuc.create');
-    Route::post('/'.$slugLamLichChinhThuc, [LamLichChinhThucController::class, 'store'])->name('lam-lich-chinh-thuc.store');
-    Route::get('/'.$slugLamLichChinhThuc.'/{lich}', [LamLichChinhThucController::class, 'show'])->whereNumber('lich')->name('lam-lich-chinh-thuc.show');
-    Route::put('/'.$slugLamLichChinhThuc.'/{lich}/thu-tu-bai', [LamLichChinhThucController::class, 'updateThuTu'])->whereNumber('lich')->name('lam-lich-chinh-thuc.update-thu-tu');
-    Route::put('/'.$slugLamLichChinhThuc.'/{lich}/ma-kh', [LamLichChinhThucController::class, 'updateMaKh'])->whereNumber('lich')->name('lam-lich-chinh-thuc.update-ma-kh');
-    Route::get('/'.$slugLamLichChinhThuc.'/{lich}/xuat-excel', [LamLichChinhThucController::class, 'exportExcel'])->whereNumber('lich')->name('lam-lich-chinh-thuc.export-excel');
-    Route::post('/'.$slugLamLichChinhThuc.'/{lich}/luu-vao-phan-mem', [LamLichChinhThucController::class, 'luuVaoPhanMem'])->whereNumber('lich')->name('lam-lich-chinh-thuc.luu-vao-phan-mem');
-    Route::delete('/'.$slugLamLichChinhThuc.'/{lich}', [LamLichChinhThucController::class, 'destroy'])->whereNumber('lich')->name('lam-lich-chinh-thuc.destroy');
+
+    $slugTaoNhomZalo = '1-tao-nhom-zalo-hoc-vien';
+    Route::get('/'.$slugTaoNhomZalo, [TaoNhomZaloHocVienController::class, 'index'])->name('tao-nhom-zalo-hoc-vien.index');
+
+    $slugThongBaoLichThiDuKien = '1-thong-bao-lich-thi-du-kien';
+    Route::get('/'.$slugThongBaoLichThiDuKien, [ThongBaoLichThiDuKienController::class, 'index'])->name('thong-bao-lich-thi-du-kien.index');
+
+    $slugTaiLieuHuongDan = '1-tai-lieu-huong-dan-hoc-vien';
+    Route::get('/'.$slugTaiLieuHuongDan, [TaiLieuHuongDanHocVienController::class, 'index'])->name('tai-lieu-huong-dan-hoc-vien.index');
+
+    $slugThongBaoLichThiCtZalo = '1-thong-bao-lich-thi-chinh-thuc-zalo';
+    Route::get('/'.$slugThongBaoLichThiCtZalo, [ThongBaoLichThiChinhThucZaloController::class, 'index'])->name('thong-bao-lich-thi-chinh-thuc-zalo.index');
 
     Route::prefix('1-lich-du-kien-ly-thuyet')->name('lich-du-kien.ly-thuyet.')->group(function () {
         Route::get('/', [LichHocLyThuyetThucHanhController::class, 'index'])->name('index');

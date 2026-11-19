@@ -1,6 +1,6 @@
 <nav aria-label="breadcrumb">
     <ol class="breadcrumb bg-white border py-2 small mb-3">
-        <li class="breadcrumb-item"><a href="{{ route('qldtmoto.index') }}">QLĐT Ô TÔ</a></li>
+        <li class="breadcrumb-item"><a href="{{ route('qldtmoto.index') }}">QLĐT MÔ TÔ</a></li>
         <li class="breadcrumb-item">Làm lịch giảng dạy của khoá</li>
         @isset($trangCon)
             <li class="breadcrumb-item"><a href="{{ route('qldtmoto.lam-lich-chinh-thuc.index') }}">Làm lịch chính thức</a></li>

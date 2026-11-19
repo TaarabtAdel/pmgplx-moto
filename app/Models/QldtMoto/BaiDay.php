@@ -19,11 +19,8 @@ class BaiDay extends Model
 
     /** Mã hạng (dùng trong URL) => nhãn hiển thị. */
     public const HANG = [
-        'A1' => 'A1',
+        'A1' => 'A1 (mô tô)',
         'A2' => 'A2',
-        'B' => 'B',
-        'B01' => 'B01',
-        'C' => 'C',
     ];
 
     /** Mã ca (dùng trong URL) => nhãn hiển thị. */

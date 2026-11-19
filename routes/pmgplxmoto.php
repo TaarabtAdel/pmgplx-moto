@@ -4,6 +4,8 @@ use App\Http\Controllers\PMGPLXMOTO\AnhHocVienController;
 use App\Http\Controllers\PMGPLXMOTO\DanhSachGiaoVienController;
 use App\Http\Controllers\PMGPLXMOTO\DanhSachHocVienController;
 use App\Http\Controllers\PMGPLXMOTO\DanhSachKhoaHocController;
+use App\Http\Controllers\PMGPLXMOTO\DanhSachLichGiaoVienController;
+use App\Http\Controllers\PMGPLXMOTO\DanhSachLichXeTapController;
 use App\Http\Controllers\PMGPLXMOTO\DanhSachXeController;
 use App\Http\Controllers\PMGPLXMOTO\DoThongTinHocVienController;
 use App\Http\Controllers\PMGPLXMOTO\KetQuaDaoTaoBanCuController;
@@ -75,6 +77,25 @@ Route::prefix('pmgplxmoto')->name('pmgplxmoto.')->group(function (): void {
 
     Route::get('/danh-muc/khoa-hoc', [DanhSachKhoaHocController::class, 'index'])
         ->name('dm.khoa-hoc.index');
+
+    Route::get('/lich/giao-vien', [DanhSachLichGiaoVienController::class, 'index'])
+        ->name('lich.gv.index');
+    Route::delete('/lich/giao-vien/theo-khoa', [DanhSachLichGiaoVienController::class, 'destroyTheoKhoa'])
+        ->name('lich.gv.destroy-theo-khoa');
+    Route::delete('/lich/giao-vien/{maLichLv}', [DanhSachLichGiaoVienController::class, 'destroy'])
+        ->whereNumber('maLichLv')
+        ->name('lich.gv.destroy');
+
+    Route::get('/lich/xe-tap', [DanhSachLichXeTapController::class, 'index'])
+        ->name('lich.xe.index');
+    Route::delete('/lich/xe-tap/theo-khoa', [DanhSachLichXeTapController::class, 'destroyTheoKhoa'])
+        ->name('lich.xe.destroy-theo-khoa');
+    Route::patch('/lich/xe-tap/{maLichSd}', [DanhSachLichXeTapController::class, 'update'])
+        ->whereNumber('maLichSd')
+        ->name('lich.xe.update');
+    Route::delete('/lich/xe-tap/{maLichSd}', [DanhSachLichXeTapController::class, 'destroy'])
+        ->whereNumber('maLichSd')
+        ->name('lich.xe.destroy');
 });
 
 Route::prefix('pmgplxmotoold')->name('pmgplxmotoold.')->group(function (): void {

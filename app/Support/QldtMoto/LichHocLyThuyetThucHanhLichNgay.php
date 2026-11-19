@@ -21,14 +21,10 @@ final class LichHocLyThuyetThucHanhLichNgay
 
     public const HANG_B_TU_DONG = 'B01';
 
-    /** @return array{C: string, B: string, B01: string} */
+    /** @return array<string, string> */
     public static function nhanHang(): array
     {
-        return [
-            self::HANG_C => 'Hạng C',
-            self::HANG_B_SAN => 'B sàn',
-            self::HANG_B_TU_DONG => 'B tự động',
-        ];
+        return CheDoDaoTaoMoto::nhanHang();
     }
 
     public static function nhanHangTuMa(?string $ma): string
@@ -54,7 +50,7 @@ final class LichHocLyThuyetThucHanhLichNgay
             ->all();
 
         if ($modes === []) {
-            $modes = [self::HANG_C];
+            $modes = [CheDoDaoTaoMoto::chuanHoaHang((string) $khoa->HangGPLX)];
         }
 
         return $modes;
@@ -63,17 +59,14 @@ final class LichHocLyThuyetThucHanhLichNgay
     public static function chuanHoaHangTuGplx(string $hang): ?string
     {
         $h = strtoupper(trim($hang));
-        if ($h === '' || $h === 'C') {
-            return self::HANG_C;
+        if ($h === '' || str_starts_with($h, 'A1') || $h === 'A1M') {
+            return CheDoDaoTaoMoto::HANG_A1;
         }
-        if (in_array($h, ['B', 'B1', 'B2', 'B11'], true)) {
-            return $h === 'B11' || str_contains($h, '11') ? self::HANG_B_TU_DONG : self::HANG_B_SAN;
-        }
-        if (str_contains($h, 'C')) {
-            return self::HANG_C;
+        if (str_starts_with($h, 'A2')) {
+            return CheDoDaoTaoMoto::HANG_A2;
         }
 
-        return null;
+        return CheDoDaoTaoMoto::chuanHoaHang($hang);
     }
 
     /**

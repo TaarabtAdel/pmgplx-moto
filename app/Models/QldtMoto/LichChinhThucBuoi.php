@@ -29,6 +29,7 @@ class LichChinhThucBuoi extends Model
         'GioBatDau',
         'GioKetThuc',
         'SoGio',
+        'SoHocVien',
         'ThuTuBai',
     ];
 
@@ -37,6 +38,7 @@ class LichChinhThucBuoi extends Model
         'Ngay' => 'date',
         'NgaySo' => 'integer',
         'SoGio' => 'float',
+        'SoHocVien' => 'integer',
         'ThuTuBai' => 'integer',
     ];
 }

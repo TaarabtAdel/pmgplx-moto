@@ -29,6 +29,7 @@ class LichDuKienThucHanhBuoi extends Model
         'GioBatDau',
         'GioKetThuc',
         'SoGio',
+        'SoHocVien',
     ];
 
     protected $casts = [
@@ -36,5 +37,6 @@ class LichDuKienThucHanhBuoi extends Model
         'Ngay' => 'date',
         'NgaySo' => 'integer',
         'SoGio' => 'float',
+        'SoHocVien' => 'integer',
     ];
 }

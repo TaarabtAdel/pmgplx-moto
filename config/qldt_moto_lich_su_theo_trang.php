@@ -51,8 +51,6 @@ return [
     'qldtmoto.lich-du-kien.thuc-hanh.index' => ['qldtmoto.lich-du-kien.thuc-hanh.export-excel'],
     'qldtmoto.lich-du-kien.thuc-hanh.edit' => ['qldtmoto.lich-du-kien.thuc-hanh.export-excel'],
     'qldtmoto.lich-du-kien.thuc-hanh.create' => ['qldtmoto.lich-du-kien.thuc-hanh.export-excel'],
-    'qldtmoto.lam-lich-chinh-thuc.index' => ['qldtmoto.lam-lich-chinh-thuc.export-excel'],
-    'qldtmoto.lam-lich-chinh-thuc.show' => ['qldtmoto.lam-lich-chinh-thuc.export-excel'],
 
     'qldtmoto.1-lich-du-kien-ly-thuyet.index' => ['qldtmoto.lich-du-kien.ly-thuyet.export'],
     'qldtmoto.1-lich-du-kien-thuc-hanh.index' => ['qldtmoto.lich-du-kien.thuc-hanh.export-excel'],

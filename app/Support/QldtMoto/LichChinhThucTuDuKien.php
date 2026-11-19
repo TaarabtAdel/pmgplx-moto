@@ -88,6 +88,7 @@ final class LichChinhThucTuDuKien
                         'GioBatDau' => $b->GioBatDau,
                         'GioKetThuc' => $b->GioKetThuc,
                         'SoGio' => $b->SoGio,
+                        'SoHocVien' => $b->SoHocVien,
                         'ThuTuBai' => $thuTu,
                     ]);
                 }

@@ -41,8 +41,10 @@ class LichHocLyThuyetThucHanhTungGiaoVienController extends Controller
             'maKh' => $maKh,
             'tenKhoa' => $khoa instanceof KhoaHoc ? trim((string) $khoa->TenKH) : '',
             'danhSachGv' => $danhSachGv,
-            'linkLichGv' => $maKh !== '' ? route('pmgplx.lich.gv.index', ['ma_kh' => $maKh]) : route('pmgplx.lich.gv.index'),
-            'linkNhapLich' => route('pmgplx.lich.nhap-file.create'),
+            'linkLichGv' => $maKh !== '' ? route('pmgplxmoto.lich.gv.index', ['ma_kh' => $maKh]) : route('pmgplxmoto.lich.gv.index'),
+            'linkNhapLich' => \Illuminate\Support\Facades\Route::has('pmgplxmoto.lich.nhap-file.create')
+                ? route('pmgplxmoto.lich.nhap-file.create')
+                : '#',
         ]);
     }
 

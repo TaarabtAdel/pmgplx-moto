@@ -30,6 +30,7 @@ class LichDuKienThucHanh extends Model
         'NgaySinhLich',
         'NgayTao',
         'NgayCapNhat',
+        'CauHinhJson',
     ];
 
     protected $casts = [

@@ -15,11 +15,18 @@
                 <div class="alert alert-danger py-2">{{ $err }}</div>
             @endforeach
 
-            <p class="small text-muted mb-3">
+            <p class="small text-muted mb-2">
                 Chỉ hiện lịch dự kiến <strong>đã sinh buổi</strong> tại
-                <a href="{{ route('qldtmoto.lich-du-kien.thuc-hanh.index') }}">/qldt-oto/lich-du-kien/thuc-hanh</a>.
-                Sau khi chọn, hệ thống sao chép lịch sang bản chính thức để chỉnh thứ tự bài / xuất / lưu PMGPLX.
+                <a href="{{ route('qldtmoto.lich-du-kien.thuc-hanh.index') }}">Lịch dự kiến → Thực hành</a>.
+                Tạo bản chính thức để <strong>in / xuất Excel</strong> và <strong>ghi rõ khai giảng — bế giảng</strong> trên danh mục khoá PM
+                (<strong class="text-danger">không</strong> ghi lịch vào <code>KhoaHoc_GiaoVien</code> / <code>KhoaHoc_XeTap</code>).
             </p>
+
+            <div class="alert alert-secondary border small mb-3" id="kg-bg-goi-y" style="display: none;">
+                <strong>Ngày khai giảng:</strong> <span id="kg-goi-y">—</span>
+                &nbsp;·&nbsp;
+                <strong>Ngày bế giảng:</strong> <span id="bg-goi-y">—</span>
+            </div>
 
             @if ($duKienOptions->isEmpty())
                 <div class="alert alert-warning">
@@ -51,19 +58,27 @@
                             </select>
                         </div>
                         <div class="form-group col-md-4">
-                            <label for="ma_kh">Mã khoá PMGPLX (để lưu vào phần mềm)</label>
+                            <label for="ma_kh">Khoá PMGPLX-MOTO (hiển thị KG / BG)</label>
                             <select class="form-control form-control-sm sel-khoa-pmgplx" id="ma_kh" name="ma_kh"
                                     data-placeholder="— Gợi ý theo tên khoá hoặc chọn —">
                                 <option value=""></option>
                                 @foreach ($khoaOptions as $kh)
-                                    <option value="{{ $kh->MaKH }}" @selected(old('ma_kh') === $kh->MaKH)>
+                                    <option value="{{ $kh->MaKH }}" @selected(old('ma_kh') === $kh->MaKH)
+                                            data-kg="{{ $kh->NgayKG?->format('d/m/Y') ?? '' }}"
+                                            data-bg="{{ $kh->NgayBG?->format('d/m/Y') ?? '' }}">
                                         {{ $kh->TenKH }} ({{ $kh->MaKH }})
+                                        @if ($kh->NgayKG)
+                                            · KG {{ $kh->NgayKG->format('d/m/Y') }}
+                                        @endif
+                                        @if ($kh->NgayBG)
+                                            · BG {{ $kh->NgayBG->format('d/m/Y') }}
+                                        @endif
                                     </option>
                                 @endforeach
                             </select>
                         </div>
                         <div class="form-group col-md-2">
-                            <button type="submit" class="btn btn-sm btn-navy btn-block">Tạo &amp; xem lại</button>
+                            <button type="submit" class="btn btn-sm btn-navy btn-block">Tạo &amp; xem</button>
                         </div>
                     </div>
                 </form>
@@ -89,6 +104,23 @@
     }
     s2('#lich_du_kien_id');
     s2('#ma_kh');
+
+    function hienKgBg() {
+        var $opt = $('#ma_kh option:selected');
+        var kg = $opt.data('kg') || '';
+        var bg = $opt.data('bg') || '';
+        var $box = $('#kg-bg-goi-y');
+        if (! $opt.val()) {
+            $box.hide();
+            return;
+        }
+        $('#kg-goi-y').text(kg || '—');
+        $('#bg-goi-y').text(bg || '—');
+        $box.show();
+    }
+
+    $('#ma_kh').on('change', hienKgBg);
+    hienKgBg();
 
     $('#lich_du_kien_id').on('change', function () {
         var opt = this.options[this.selectedIndex];

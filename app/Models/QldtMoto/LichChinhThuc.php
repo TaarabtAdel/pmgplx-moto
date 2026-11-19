@@ -7,7 +7,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
-/** Lịch chính thức thực hành — sao từ lịch dự kiến, chỉnh thứ tự bài rồi lưu PMGPLX. */
+/** Lịch chính thức TH mô tô — sao từ dự kiến, xuất Excel / hiển thị KG-BG; không ghi PMGPLX. */
 class LichChinhThuc extends Model
 {
     protected $connection = 'sqlsrv_manhlinh_moto';

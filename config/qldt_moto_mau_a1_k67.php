@@ -27,13 +27,13 @@ return [
             '4. LICH HỌC LT A1K67 - LỚP 01+02.xlsx',
             '4. LICH HỌC LT A1K67- LỚP 03.xlsx',
         ],
-        'ghi_chu' => 'Lịch LT theo lớp (01+02 / 03). Cần màn chọn khoá + lớp → xuất Excel.',
-        'trang_thai' => 'chua',
+        'ghi_chu' => 'Chọn khoá PMGPLX-MOTO + lớp 01/02/03 → xuất Excel (mẫu `lich-hoc-lt-a1.xlsx`).',
+        'trang_thai' => 'pmgplx',
     ],
     '1-lich-du-kien-thuc-hanh' => [
         'mau' => ['5. LỊCH HỌC THỰC HÀNH.xlsx'],
-        'ghi_chu' => 'Lịch TH một file/khoá hoặc theo lớp — xác nhận quy ước khi code.',
-        'trang_thai' => 'chua',
+        'ghi_chu' => 'Form đơn giản: GV + N ngày liên tiếp, xuất Excel mẫu A1-K67.',
+        'trang_thai' => 'pmgplx',
     ],
     '1-dang-ky-lich-sat-hach-csgt' => [
         'mau' => [],
@@ -46,8 +46,8 @@ return [
             '4. LICH HỌC LT A1K67- LỚP 03.xlsx',
             '5. LỊCH HỌC THỰC HÀNH.xlsx',
         ],
-        'ghi_chu' => 'Sau lịch CA: chỉnh từ lịch dự kiến — có thể cùng template với mục 4–5.',
-        'trang_thai' => 'chua',
+        'ghi_chu' => 'Không có chức năng trên PM — chỉ ghi rõ Ngày KG / Ngày BG từ danh mục khoá; lịch in dùng file đã xuất ở mục 4–5, không nhập KhoaHoc_GiaoVien/XeTap.',
+        'trang_thai' => 'huong_dan',
     ],
     '1-bao-cao-dang-ky' => [
         'mau' => [

@@ -9,23 +9,24 @@ use App\Models\QldtMoto\LichDuKienThucHanhCapGv;
 use App\Models\QldtMoto\LichDuKienThucHanhNgayNghi;
 use App\Models\PMGPLXMOTO\GiaoVien;
 use App\Models\PMGPLXMOTO\XeTap;
+use App\Support\QldtMoto\CheDoThucHanhMoto;
+use App\Support\QldtMoto\LichDuKienThucHanhA1ExcelExporter;
 use App\Support\QldtMoto\LichDuKienThucHanhBangLich;
 use App\Support\QldtMoto\LichDuKienThucHanhPmgplxExcelExporter;
 use App\Support\QldtMoto\SinhLichDuKienThucHanh;
+use App\Support\QldtMoto\SinhLichDuKienThucHanhA1;
 use Carbon\Carbon;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Symfony\Component\HttpFoundation\BinaryFileResponse;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
 use Illuminate\View\View;
 
-/** QLĐT Ô TÔ → Làm lịch dự kiến → Thực hành: danh sách + tạo/sửa/xoá lịch dự kiến. */
+/** QLĐT mô tô → Lịch dự kiến thực hành hạng A. */
 class ThucHanhController extends Controller
 {
-    /** Hạng GPLX của xe trong danh mục XeTap ứng với xe số tự động. */
-    private const HANG_XE_TU_DONG = 'B11';
-
     public function index(Request $request): View
     {
         $filters = [
@@ -53,7 +54,7 @@ class ThucHanhController extends Controller
 
     public function create(): View
     {
-        return $this->form(new LichDuKienThucHanh());
+        return $this->form(new LichDuKienThucHanh(['Hang' => 'A1']));
     }
 
     public function store(Request $request): RedirectResponse
@@ -86,7 +87,7 @@ class ThucHanhController extends Controller
             ->with('success', 'Đã xoá lịch dự kiến "'.$ten.'".');
     }
 
-    public function exportExcel(LichDuKienThucHanh $lich): StreamedResponse|RedirectResponse
+    public function exportExcel(LichDuKienThucHanh $lich): BinaryFileResponse|StreamedResponse|RedirectResponse
     {
         $bangLich = LichDuKienThucHanhBangLich::build($lich);
         if ($bangLich === null) {
@@ -97,6 +98,10 @@ class ThucHanhController extends Controller
         }
 
         try {
+            if (CheDoThucHanhMoto::isDonGian($lich->Hang)) {
+                return app(LichDuKienThucHanhA1ExcelExporter::class)->download($lich);
+            }
+
             return LichDuKienThucHanhPmgplxExcelExporter::download($lich, $bangLich);
         } catch (\Throwable $e) {
             return redirect()
@@ -114,16 +119,23 @@ class ThucHanhController extends Controller
             return $redirect->with('success', $thongBao);
         }
 
-        $kq = app(SinhLichDuKienThucHanh::class)->sinh($lich->fresh());
+        $lich = $lich->fresh();
+        $kq = CheDoThucHanhMoto::isDonGian($lich->Hang)
+            ? app(SinhLichDuKienThucHanhA1::class)->sinh($lich)
+            : app(SinhLichDuKienThucHanh::class)->sinh($lich);
+
         $thongBao = 'Đã sinh lịch: '.$kq['so_buoi'].' buổi'
-            .($kq['ngay_ket_thuc'] ? ', kết thúc '.Carbon::parse($kq['ngay_ket_thuc'])->format('d/m/Y') : '').'.'
-            .collect(['cabin' => 'Cabin', 'tu_dong' => 'Tự động'])
+            .($kq['ngay_ket_thuc'] ? ', kết thúc '.Carbon::parse($kq['ngay_ket_thuc'])->format('d/m/Y') : '').'.';
+
+        if (! CheDoThucHanhMoto::isDonGian($lich->Hang)) {
+            $thongBao .= collect(['cabin' => 'Cabin', 'tu_dong' => 'Tự động'])
                 ->filter(fn (string $nhan, string $khoi): bool => ! empty($kq['khoi'][$khoi]))
                 ->map(fn (string $nhan, string $khoi): string => ' '.$nhan.': '.collect($kq['khoi'][$khoi])
                     ->map(fn (array $ngay, int $cap): string => 'Cặp '.$cap.' '.Carbon::parse($ngay[0])->format('d/m')
                         .($ngay[1] !== $ngay[0] ? '–'.Carbon::parse($ngay[1])->format('d/m') : ''))
                     ->implode(', ').'.')
                 ->implode('');
+        }
 
         return $redirect
             ->with('success', $thongBao)
@@ -133,42 +145,26 @@ class ThucHanhController extends Controller
 
     private function form(LichDuKienThucHanh $lich): View
     {
-        $ngayNghi = old('ngay_nghi') ?? ($lich->exists
-            ? $lich->ngayNghis->sortBy('Ngay')->map(fn ($n): array => [
-                'ngay' => $n->Ngay->format('Y-m-d'),
-                'ghi_chu' => (string) $n->GhiChu,
-            ])->all()
-            : []);
+        $cauHinh = CheDoThucHanhMoto::normalizeCauHinh(
+            old('cau_hinh') ?? ($lich->CauHinhJson ? json_decode((string) $lich->CauHinhJson, true) : null)
+        );
 
-        $capGv = old('cap_gv') ?? ($lich->exists
-            ? $lich->capGvs->sortBy('ThuTu')->map(fn ($c): array => [
-                'gv_sang' => (string) $c->MaGvSang,
-                'gv_chieu' => (string) $c->MaGvChieu,
-                'xe' => (string) $c->BienSoXe,
-            ])->values()->all()
-            : []);
-        $capGv = array_values((array) $capGv);
-        if ($capGv === []) {
-            $capGv[] = ['gv_sang' => '', 'gv_chieu' => '', 'xe' => ''];
-        }
-
-        $xeTuDong = (string) old('xe_tu_dong', $lich->XeTuDong);
-        $maXeDangChon = array_filter([$xeTuDong, ...array_column($capGv, 'xe')]);
-        $maGvDangChon = array_filter([...array_column($capGv, 'gv_sang'), ...array_column($capGv, 'gv_chieu')]);
+        $maXeDangChon = array_filter($cauHinh['xe']);
         $xeOptions = self::xeOptions($maXeDangChon);
+        $gvGoiY = GiaoVien::query()
+            ->where('TrangThai', 1)
+            ->orderBy('TenGV')
+            ->orderBy('HoTenDem')
+            ->get(['HoTenDem', 'TenGV'])
+            ->map(fn (GiaoVien $g): string => $g->HoTen)
+            ->all();
 
         return view('QldtMoto.lich-du-kien.thuc-hanh.form', [
             'lich' => $lich,
             'hangOptions' => BaiDay::HANG,
-            'ngayNghi' => array_values((array) $ngayNghi),
-            'capGv' => $capGv,
-            'xeTuDong' => $xeTuDong,
+            'cauHinh' => $cauHinh,
             'xeOptions' => $xeOptions,
-            'xeTuDongOptions' => array_filter(
-                $xeOptions,
-                fn (array $x): bool => $x['hang'] === self::HANG_XE_TU_DONG || $x['bien_so'] === $xeTuDong
-            ),
-            'gvOptions' => self::giaoVienOptions($maGvDangChon, array_column($xeOptions, 'bien_so')),
+            'gvGoiY' => $gvGoiY,
             'bangLich' => $lich->exists ? LichDuKienThucHanhBangLich::build($lich) : null,
         ]);
     }
@@ -185,20 +181,41 @@ class ThucHanhController extends Controller
         ));
         $request->merge(['ngay_nghi' => $ngayNghi, 'cap_gv' => $capGv]);
 
-        $validator = validator($request->all(), [
+        $hang = (string) $request->input('hang');
+        $donGian = CheDoThucHanhMoto::isDonGian($hang);
+        $rules = [
             'ten_khoa' => ['required', 'string', 'max:255'],
             'hang' => ['required', Rule::in(array_keys(BaiDay::HANG))],
             'ngay_bat_dau' => ['required', 'date_format:Y-m-d'],
-            'xe_tu_dong' => ['nullable', 'string', 'max:20', Rule::exists('sqlsrv.XeTap', 'BienSoXe')],
-            'cabin_ngay' => ['nullable', 'date_format:Y-m-d'],
             'ngay_nghi' => ['array'],
             'ngay_nghi.*.ngay' => ['required', 'date_format:Y-m-d', 'distinct'],
             'ngay_nghi.*.ghi_chu' => ['nullable', 'string', 'max:255'],
-            'cap_gv' => ['array'],
-            'cap_gv.*.gv_sang' => ['nullable', 'string', 'max:20', Rule::exists('sqlsrv.GiaoVien', 'MaGV')],
-            'cap_gv.*.gv_chieu' => ['nullable', 'string', 'max:20', Rule::exists('sqlsrv.GiaoVien', 'MaGV')],
-            'cap_gv.*.xe' => ['nullable', 'string', 'max:20', Rule::exists('sqlsrv.XeTap', 'BienSoXe')],
-        ], [
+        ];
+
+        if ($donGian) {
+            $rules += [
+                'cau_hinh.ten_gv' => ['required', 'string', 'max:200'],
+                'cau_hinh.noi_dung' => ['nullable', 'string', 'max:255'],
+                'cau_hinh.dia_diem' => ['nullable', 'string', 'max:255'],
+                'cau_hinh.tong_so_hv' => ['required', 'integer', 'min:1', 'max:9999'],
+                'cau_hinh.so_hv_ngay_day_du' => ['nullable', 'integer', 'min:1', 'max:999'],
+                'cau_hinh.so_gio_ngay_day_du' => ['nullable', 'numeric', 'min:0.5', 'max:24'],
+                'cau_hinh.ngay_ky' => ['nullable', 'date_format:Y-m-d'],
+                'cau_hinh.xe' => ['nullable', 'array'],
+                'cau_hinh.xe.*' => ['string', 'max:20'],
+            ];
+        } else {
+            $rules += [
+                'xe_tu_dong' => ['nullable', 'string', 'max:20', Rule::exists('sqlsrv_moto.XeTap', 'BienSoXe')],
+                'cabin_ngay' => ['nullable', 'date_format:Y-m-d'],
+                'cap_gv' => ['array'],
+                'cap_gv.*.gv_sang' => ['nullable', 'string', 'max:20', Rule::exists('sqlsrv_moto.GiaoVien', 'MaGV')],
+                'cap_gv.*.gv_chieu' => ['nullable', 'string', 'max:20', Rule::exists('sqlsrv_moto.GiaoVien', 'MaGV')],
+                'cap_gv.*.xe' => ['nullable', 'string', 'max:20', Rule::exists('sqlsrv_moto.XeTap', 'BienSoXe')],
+            ];
+        }
+
+        $validator = validator($request->all(), $rules, [
             'ten_khoa.required' => 'Nhập Tên khoá.',
             'hang.required' => 'Chọn Hạng.',
             'hang.in' => 'Hạng không hợp lệ.',
@@ -212,44 +229,61 @@ class ThucHanhController extends Controller
             'cap_gv.*.gv_sang.exists' => 'Cặp :position: giáo viên sáng không có trong danh mục.',
             'cap_gv.*.gv_chieu.exists' => 'Cặp :position: giáo viên chiều không có trong danh mục.',
             'cap_gv.*.xe.exists' => 'Cặp :position: xe không có trong danh mục.',
+            'cau_hinh.ten_gv.required' => 'Nhập giáo viên hướng dẫn.',
+            'cau_hinh.tong_so_hv.required' => 'Nhập tổng số học viên.',
         ]);
-        $validator->after(function ($v) use ($capGv): void {
-            $gvDaDung = [];
-            $xeDaDung = [];
-            foreach ($capGv as $i => $c) {
-                $sang = trim((string) ($c['gv_sang'] ?? ''));
-                $chieu = trim((string) ($c['gv_chieu'] ?? ''));
-                $xe = trim((string) ($c['xe'] ?? ''));
-                $cap = 'Cặp '.($i + 1);
-                if ($sang === '' && $chieu === '') {
-                    $v->errors()->add("cap_gv.$i", $cap.': chọn ít nhất một giáo viên.');
-                }
-                foreach (array_filter([$sang, $chieu]) as $ma) {
-                    $key = mb_strtoupper($ma);
-                    if (isset($gvDaDung[$key])) {
-                        $v->errors()->add("cap_gv.$i", $cap.': giáo viên '.$ma.' đã có ở '.$gvDaDung[$key].'.');
+        if (! $donGian) {
+            $validator->after(function ($v) use ($capGv): void {
+                $gvDaDung = [];
+                $xeDaDung = [];
+                foreach ($capGv as $i => $c) {
+                    $sang = trim((string) ($c['gv_sang'] ?? ''));
+                    $chieu = trim((string) ($c['gv_chieu'] ?? ''));
+                    $xe = trim((string) ($c['xe'] ?? ''));
+                    $cap = 'Cặp '.($i + 1);
+                    if ($sang === '' && $chieu === '') {
+                        $v->errors()->add("cap_gv.$i", $cap.': chọn ít nhất một giáo viên.');
                     }
-                    $gvDaDung[$key] = $cap;
-                }
-                if ($xe !== '') {
-                    $key = mb_strtoupper($xe);
-                    if (isset($xeDaDung[$key])) {
-                        $v->errors()->add("cap_gv.$i", $cap.': xe '.$xe.' đã dùng ở '.$xeDaDung[$key].'.');
+                    foreach (array_filter([$sang, $chieu]) as $ma) {
+                        $key = mb_strtoupper($ma);
+                        if (isset($gvDaDung[$key])) {
+                            $v->errors()->add("cap_gv.$i", $cap.': giáo viên '.$ma.' đã có ở '.$gvDaDung[$key].'.');
+                        }
+                        $gvDaDung[$key] = $cap;
                     }
-                    $xeDaDung[$key] = $cap;
+                    if ($xe !== '') {
+                        $key = mb_strtoupper($xe);
+                        if (isset($xeDaDung[$key])) {
+                            $v->errors()->add("cap_gv.$i", $cap.': xe '.$xe.' đã dùng ở '.$xeDaDung[$key].'.');
+                        }
+                        $xeDaDung[$key] = $cap;
+                    }
                 }
-            }
-        });
+            });
+        }
         $validator->validate();
 
+        $cauHinhJson = null;
+        if ($donGian) {
+            $cauHinh = CheDoThucHanhMoto::normalizeCauHinh((array) $request->input('cau_hinh', []));
+            $cauHinhJson = json_encode($cauHinh, JSON_UNESCAPED_UNICODE);
+            $xeDau = $cauHinh['xe'][0] ?? '';
+            $capGv = [[
+                'gv_sang' => '',
+                'gv_chieu' => '',
+                'xe' => $xeDau,
+            ]];
+        }
+
         $now = Carbon::now();
-        DB::connection('sqlsrv_manhlinh_moto')->transaction(function () use ($request, $lich, $ngayNghi, $capGv, $now): void {
+        DB::connection('sqlsrv_manhlinh_moto')->transaction(function () use ($request, $lich, $ngayNghi, $capGv, $now, $donGian, $cauHinhJson): void {
             $lich->fill([
                 'TenKhoa' => trim((string) $request->input('ten_khoa')),
                 'Hang' => (string) $request->input('hang'),
                 'NgayBatDauThucHanh' => $request->input('ngay_bat_dau'),
-                'XeTuDong' => $request->input('xe_tu_dong') ?: null,
-                'CabinCapTruocNgay' => $request->input('cabin_ngay') ?: null,
+                'XeTuDong' => $donGian ? null : ($request->input('xe_tu_dong') ?: null),
+                'CabinCapTruocNgay' => $donGian ? null : ($request->input('cabin_ngay') ?: null),
+                'CauHinhJson' => $cauHinhJson,
                 'NgayCapNhat' => $now,
             ])->save();
 

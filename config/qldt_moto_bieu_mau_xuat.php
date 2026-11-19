@@ -39,5 +39,4 @@ return [
     ['ten_route' => 'qldtmoto.bien-ban-pho-bien-noi-quy.export', 'ma' => 'bien-ban-pho-bien-nq', 'ten' => 'Biên bản phổ biến nội quy', 'loai' => 'Word', 'thu_tu' => 220],
     ['ten_route' => 'qldtmoto.quyet-dinh-thanh-lap-lop-hoc.export', 'ma' => 'qd-thanh-lap-lop', 'ten' => 'Quyết định thành lập lớp học', 'loai' => 'Word', 'thu_tu' => 230],
     ['ten_route' => 'qldtmoto.lich-du-kien.thuc-hanh.export-excel', 'ma' => 'lich-du-kien-thuc-hanh', 'ten' => 'Lịch dự kiến thực hành (mẫu nhập lịch)', 'loai' => 'Excel', 'thu_tu' => 240],
-    ['ten_route' => 'qldtmoto.lam-lich-chinh-thuc.export-excel', 'ma' => 'lich-chinh-thuc-th', 'ten' => 'Lịch chính thức thực hành (mẫu nhập lịch)', 'loai' => 'Excel', 'thu_tu' => 250],
 ];
