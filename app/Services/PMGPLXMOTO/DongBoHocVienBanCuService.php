@@ -154,6 +154,8 @@ class DongBoHocVienBanCuService
         }
         unset($row);
 
+        $this->enrichPreviewAnhHienTaiBanCu($planned);
+
         $khoaNguon = KhoaHoc::query()->find($maKhoaHocNguon, ['MaKH', 'TenKH']);
         $khoaDich = $maKhoaHocDich
             ? KhoaHocOld::query()->find($maKhoaHocDich, ['MaKH', 'TenKH'])
@@ -330,10 +332,7 @@ class DongBoHocVienBanCuService
                     continue;
                 }
 
-                if (isset($existingMaDks[$targetMaDk])) {
-                    $skipped++;
-                    continue;
-                }
+                $exists = isset($existingMaDks[$targetMaDk]);
 
                 $payloadNguoi = $this->onlyColumns($nguoi->getAttributes(), $colsNguoi);
                 $payloadNguoi['MaDK'] = $targetMaDk;
@@ -368,10 +367,11 @@ class DongBoHocVienBanCuService
                 }
 
                 try {
-                    $oldDb->table('NguoiLX')->insert($payloadNguoi);
+                    $oldDb->table('NguoiLX')->updateOrInsert(['MaDK' => $targetMaDk], $payloadNguoi);
 
                     if ($payloadHoSo !== null) {
-                        $oldDb->table('NguoiLX_HoSo')->insert($payloadHoSo);
+                        // DuongDanAnh: copy nguyên từ PM mới (không đổi MaDK / mã khóa trong path).
+                        $oldDb->table('NguoiLX_HoSo')->updateOrInsert(['MaDK' => $targetMaDk], $payloadHoSo);
                     }
                 } catch (\Throwable $e) {
                     throw new \RuntimeException(
@@ -382,7 +382,7 @@ class DongBoHocVienBanCuService
                 }
 
                 $syncedMaDks[] = $targetMaDk;
-                $inserted++;
+                $exists ? $updated++ : $inserted++;
             }
 
             $this->alignKhoaHocWithBaoCaoI($maKhoaHocDich, $oldDb);
@@ -616,6 +616,44 @@ class DongBoHocVienBanCuService
         }
 
         return $code.' — '.$ten;
+    }
+
+    /**
+     * @param  list<array<string, mixed>>  $planned
+     */
+    private function enrichPreviewAnhHienTaiBanCu(array &$planned): void
+    {
+        $maDks = [];
+        foreach ($planned as $row) {
+            if (! empty($row['ton_tai']) && ! empty($row['ma_dk'])) {
+                $maDks[] = (string) $row['ma_dk'];
+            }
+        }
+
+        $maDks = array_values(array_unique($maDks));
+        if ($maDks === []) {
+            return;
+        }
+
+        $paths = DB::connection('sqlsrv_moto_old')
+            ->table('NguoiLX_HoSo')
+            ->whereIn('MaDK', $maDks)
+            ->pluck('DuongDanAnh', 'MaDK');
+
+        foreach ($planned as &$row) {
+            if (empty($row['ton_tai']) || empty($row['ma_dk'])) {
+                continue;
+            }
+
+            $maDk = (string) $row['ma_dk'];
+            $cu = trim((string) ($paths[$maDk] ?? ''));
+            $moi = trim((string) ($row['duong_danh_anh'] ?? ''));
+
+            $row['duong_danh_anh_cu'] = $cu;
+            $row['anh_url_cu'] = DuongDanAnhPmGplx::previewUrl($cu !== '' ? $cu : null);
+            $row['duong_danh_anh_khac'] = $cu !== '' && $cu !== $moi;
+        }
+        unset($row);
     }
 
     /**

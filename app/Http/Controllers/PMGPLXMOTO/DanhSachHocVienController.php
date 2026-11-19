@@ -204,8 +204,11 @@ class DanhSachHocVienController extends Controller
         if (($result['inserted'] ?? 0) > 0) {
             $detail[] = "thêm mới {$result['inserted']}";
         }
+        if (($result['updated'] ?? 0) > 0) {
+            $detail[] = "cập nhật {$result['updated']}";
+        }
         if (($result['skipped'] ?? 0) > 0) {
-            $detail[] = "bỏ qua (đã có) {$result['skipped']}";
+            $detail[] = "bỏ qua {$result['skipped']}";
         }
         if (($result['failed'] ?? 0) > 0) {
             $detail[] = "lỗi {$result['failed']}";

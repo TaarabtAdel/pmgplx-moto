@@ -159,6 +159,26 @@
         margin: 0 auto;
         display: block;
     }
+    .dong-bo-anh-planned-cell {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 2px;
+    }
+    .dong-bo-anh-ban-cu-stack {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 1px;
+    }
+    .dong-bo-anh-ban-cu-stack .dong-bo-anh-thumb {
+        border-color: #ffc107;
+    }
+    .dong-bo-anh-ban-cu-label {
+        font-size: 0.6rem;
+        padding: 0 0.2rem;
+        line-height: 1.2;
+    }
 </style>
 @endpush
 
@@ -187,6 +207,7 @@
         $ttXuLyHighCount = (int) ($meta['tt_xu_ly_high_count'] ?? 0);
         $ttXuLyMacDinh = old('tt_xuly_mac_dinh', \App\Support\PMGPLXMOTO\DongBoTtXuLy::CHOICE_KEEP);
         $ttXuLyPerHv = old('tt_xuly', []);
+        $sourceByMaDk = collect($sourceRows)->keyBy('ma_dk');
     @endphp
 
     @if (! empty($lastBatch) && ! empty($lastBatch['ma_dks']))
@@ -275,7 +296,7 @@
                 Map: <code>MaDK</code> prefix; <code>MaKhoaHoc</code>/<code>BaoCaoI.MaKH</code> = khóa đích; <code>DuongDanAnh</code> giữ như nguồn. Cập nhật <code>KhoaHoc</code> từ nguồn (chạy lại được khi HV đã đủ).
                 <strong>Map khi ghi:</strong> <code>MaDK</code> đổi prefix; <code>MaKhoaHoc</code>/<code>BaoCaoI.MaKH</code> = khóa đích;
                 <code>MaCSDT</code> / <code>MaSoGTVT</code> / <code>MaDVNhanHSo</code> / <code>DonViNhanHSo</code> theo khóa đích; học viên có <code>MaDK</code> đúng prefix khóa nguồn.
-                Chỉ <strong>INSERT</strong> nếu chưa có <code>MaDK</code>/<code>MaBCI</code> trên bản cũ (không ghi đè).
+                Học viên đã có <code>MaDK</code> trên bản cũ sẽ được <strong>cập nhật</strong> (gồm <code>DuongDanAnh</code> giữ như PM mới).
                 @if($preview && !empty($preview['meta']['bao_cao_i_nguon']))
                     <br /><strong>Báo cái I nguồn:</strong> {{ $preview['meta']['bao_cao_i_nguon'] }} dòng
                     @if(isset($preview['meta']['bao_cao_i_dich']))
@@ -496,6 +517,11 @@
                                             @php
                                                 $maDkNguonRow = (string) ($row['ma_dk_nguon'] ?? '');
                                                 $ttChoiceRow = $ttXuLyPerHv[$maDkNguonRow] ?? '';
+                                                $srcAnhRow = $maDkNguonRow !== '' ? ($sourceByMaDk[$maDkNguonRow] ?? null) : null;
+                                                $anhUrlNguon = is_array($srcAnhRow) ? ($srcAnhRow['anh_url'] ?? null) : ($row['anh_url'] ?? null);
+                                                $duongDanAnhNguon = is_array($srcAnhRow)
+                                                    ? trim((string) ($srcAnhRow['duong_danh_anh'] ?? ''))
+                                                    : trim((string) ($row['duong_danh_anh'] ?? ''));
                                             @endphp
                                             <tr @class([
                                                 'hoc-vien-dong-bo-row-conflict' => ! empty($row['ton_tai']),
@@ -548,11 +574,14 @@
                                                     @endif
                                                 </td>
                                                 <td class="col-anh">
-                                                    @include('PMGPLXMOTO.danh-muc._dong-bo-anh-thumb', [
-                                                        'anhUrl' => $row['anh_url'] ?? null,
-                                                        'duongDanAnh' => $row['duong_danh_anh'] ?? '',
+                                                    @include('PMGPLXMOTO.danh-muc._dong-bo-anh-planned-cell', [
+                                                        'anhUrl' => $anhUrlNguon,
+                                                        'duongDanAnh' => $duongDanAnhNguon,
                                                         'hoTen' => $row['ho_ten'] ?? '',
-                                                        'maDk' => $row['ma_dk'] ?? ($row['ma_dk_nguon'] ?? ''),
+                                                        'maDk' => $maDkNguonRow,
+                                                        'anhUrlCu' => $row['anh_url_cu'] ?? null,
+                                                        'duongDanAnhCu' => $row['duong_danh_anh_cu'] ?? '',
+                                                        'khacPath' => ! empty($row['duong_danh_anh_khac']),
                                                     ])
                                                 </td>
                                             </tr>
@@ -567,6 +596,7 @@
                             <div class="small text-muted px-3 py-2 border-top">
                                 <strong>Đơn vị cấp</strong> và cột kết quả trên hồ sơ copy nguyên từ phần mềm mới (không đổi theo mốc 01/03/2025).
                                 Cột <strong>ĐVC bản cũ</strong> = giá trị sẽ ghi <code>DonViCapGPLXDaCo</code> trên DB cũ.
+                                Ảnh trên = path PM mới; nhãn <strong>cũ</strong> nếu <code>DuongDanAnh</code> trên DB bản cũ khác.
                             </div>
                         @endif
                     </div>
