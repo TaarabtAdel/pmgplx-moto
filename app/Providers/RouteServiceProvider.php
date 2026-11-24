@@ -20,7 +20,7 @@ class RouteServiceProvider extends ServiceProvider
 
         $webMiddleware = config('moto.standalone')
             ? ['web']
-            : ['web', 'auth', 'phan.quyen'];
+            : ['web', 'auth'];
 
         $this->routes(function () use ($webMiddleware) {
             Route::middleware('api')
@@ -40,6 +40,9 @@ class RouteServiceProvider extends ServiceProvider
 
             Route::middleware($webMiddleware)
                 ->group(base_path('routes/pmgplxmoto.php'));
+
+            Route::middleware($webMiddleware)
+                ->group(base_path('routes/daotao.php'));
 
             Route::middleware(array_merge($webMiddleware, [
                 'qldtmoto.chuan-bi-lich-su-xuat',

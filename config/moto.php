@@ -4,7 +4,7 @@
  * Ứng dụng PMGPLX-MOTO độc lập: GPLX mô tô + DB app riêng MANHLINH_MOTO (không dùng MANHLINH ô tô).
  */
 return [
-    /** true = không đăng nhập, không phân quyền (mạng nội bộ). false = cần DB Hệ Thống + đăng nhập. */
+    /** true = không đăng nhập (mạng nội bộ). false = bật đăng nhập; không có phân quyền theo chức năng. */
     'standalone' => env('MOTO_STANDALONE', true),
 
     /** Connection Laravel cho bảng app (HocVienDoThongTin, NguoiDung, …). */

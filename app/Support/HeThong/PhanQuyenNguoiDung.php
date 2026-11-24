@@ -7,8 +7,7 @@ use App\Models\HeThong\PhanQuyen;
 use Illuminate\Support\Str;
 
 /**
- * Kiểm tra quyền của người dùng đang đăng nhập theo ma trận phân quyền (bảng PhanQuyen, MANHLINH).
- * Admin luôn đủ quyền. Người dùng có nhiều vai trò thì được gộp quyền của tất cả vai trò.
+ * Ô tô: ma trận phân quyền (bảng PhanQuyen). PMGPLX-MOTO: không dùng phân quyền — mọi menu/route được phép.
  */
 final class PhanQuyenNguoiDung
 {
@@ -27,29 +26,7 @@ final class PhanQuyenNguoiDung
      */
     public static function coQuyen(string $khoa, ?NguoiDung $user = null): bool
     {
-        if (config('moto.standalone')) {
-            return true;
-        }
-
-        $user ??= self::user();
-        if ($user === null) {
-            return false;
-        }
-        if (self::laAdmin($user)) {
-            return true;
-        }
-
-        $duoc = self::khoaDuocPhep($user);
-        if (isset($duoc[$khoa])) {
-            return true;
-        }
-        foreach ($duoc as $k => $_) {
-            if (str_starts_with($k, $khoa.'/')) {
-                return true;
-            }
-        }
-
-        return false;
+        return true;
     }
 
     /**
@@ -57,31 +34,7 @@ final class PhanQuyenNguoiDung
      */
     public static function choPhepRoute(string $tenRoute, ?NguoiDung $user = null): bool
     {
-        if (config('moto.standalone')) {
-            return true;
-        }
-
-        $user ??= self::user();
-        if ($user === null) {
-            return false;
-        }
-        if (self::laAdmin($user)) {
-            return true;
-        }
-
-        $thuocChucNang = false;
-        $duoc = self::khoaDuocPhep($user);
-        foreach (CayChucNang::laNut() as $khoa => $la) {
-            if ($la['active'] === [] || ! Str::is($la['active'], $tenRoute)) {
-                continue;
-            }
-            $thuocChucNang = true;
-            if (isset($duoc[$khoa])) {
-                return true;
-            }
-        }
-
-        return ! $thuocChucNang;
+        return true;
     }
 
     /** @return array<string, true> */

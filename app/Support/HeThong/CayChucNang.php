@@ -178,6 +178,20 @@ final class CayChucNang
     {
         return [
             [
+                'khoa' => 'phong-dao-tao', 'title' => 'Phòng Đào Tạo', 'children' => [
+                    [
+                        'khoa' => 'cong-cu', 'title' => 'Công Cụ', 'children' => [
+                            [
+                                'khoa' => 'xml-bien-ban',
+                                'title' => 'Nhập XML xuất biên bản',
+                                'route' => 'daotao.pdt.cong-cu-nhap.nhap-xml-bien-ban',
+                                'active' => ['daotao.pdt.cong-cu-nhap.nhap-xml-bien-ban*'],
+                            ],
+                        ],
+                    ],
+                ],
+            ],
+            [
                 'khoa' => 'pmgplxmoto', 'title' => 'PMGPLX-MOTO', 'children' => [
                     ['khoa' => 'giao-vien', 'title' => 'Quản lý giáo viên', 'route' => 'pmgplxmoto.dm.giao-vien.index', 'active' => ['pmgplxmoto.dm.giao-vien.*']],
                     ['khoa' => 'hoc-vien', 'title' => 'Quản lý học viên', 'route' => 'pmgplxmoto.dm.hoc-vien.index', 'active' => ['pmgplxmoto.dm.hoc-vien.*']],
