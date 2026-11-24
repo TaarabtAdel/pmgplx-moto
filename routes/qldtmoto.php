@@ -1,9 +1,11 @@
 <?php
 
 use App\Http\Controllers\QldtMoto\BaoCaoDeNghiSatHachController;
+use App\Http\Controllers\QldtMoto\LapLuuHoSoController;
 use App\Http\Controllers\QldtMoto\SoTayGiaoVienLyThuyetController;
 use App\Http\Controllers\QldtMoto\TrangController;
 use App\Support\MenuQldt;
+use App\Support\QldtMoto\LapLuuHoSoSupport;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -41,6 +43,19 @@ Route::prefix('qldt-moto')->name('qldtmoto.')->group(function (): void {
     Route::get('/'.$slugBaoCaoGuiSo, [BaoCaoDeNghiSatHachController::class, 'index'])
         ->defaults('menu_trang', $slugBaoCaoGuiSo)
         ->name(MenuQldt::tenRouteTrang($slugBaoCaoGuiSo).'.index');
+
+    foreach (LapLuuHoSoSupport::slugs() as $slugLapLuu) {
+        $tenRouteLapLuu = MenuQldt::tenRouteTrang($slugLapLuu);
+        Route::get('/'.$slugLapLuu, [LapLuuHoSoController::class, 'index'])
+            ->defaults('menu_trang', $slugLapLuu)
+            ->name($tenRouteLapLuu.'.index');
+        Route::post('/'.$slugLapLuu.'/xuat', [LapLuuHoSoController::class, 'export'])
+            ->defaults('menu_trang', $slugLapLuu)
+            ->name($tenRouteLapLuu.'.export');
+        Route::get('/'.$slugLapLuu.'/khoa/{maKh}', [LapLuuHoSoController::class, 'khoaJson'])
+            ->defaults('menu_trang', $slugLapLuu)
+            ->name($tenRouteLapLuu.'.khoa');
+    }
 
     foreach (MenuQldt::tatCaTrang() as $slug) {
         Route::get('/'.$slug, [TrangController::class, 'show'])

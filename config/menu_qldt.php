@@ -261,11 +261,43 @@ return [
                     'children' => [
                         [
                             'title' => 'Hồ sơ quản lý đào tạo',
-                            'trang' => '4-lap-luu-ho-so-quan-ly-dao-tao',
+                            'mo_ta' => 'Một file Word — QĐ lập, thống kê B2, QĐ lưu, B6, bìa B10',
+                            'children' => [
+                                [
+                                    'title' => 'Quyết định về việc lập hồ sơ',
+                                    'mo_ta' => 'Gồm QĐ lập + thống kê tài liệu (B2…)',
+                                    'trang' => '4-ql-quyet-dinh-lap-ho-so',
+                                    'route' => 'qldtmoto.4-ql-quyet-dinh-lap-ho-so.index',
+                                    'active' => 'qldtmoto.4-ql-quyet-dinh-lap-ho-so.*',
+                                ],
+                                [
+                                    'title' => 'Quyết định về việc lưu hồ sơ',
+                                    'mo_ta' => 'Gồm QĐ lưu + bản định thời hạn bảo quản (B6…)',
+                                    'trang' => '4-ql-quyet-dinh-luu-ho-so',
+                                    'route' => 'qldtmoto.4-ql-quyet-dinh-luu-ho-so.index',
+                                    'active' => 'qldtmoto.4-ql-quyet-dinh-luu-ho-so.*',
+                                ],
+                            ],
                         ],
                         [
                             'title' => 'Hồ sơ đào tạo',
-                            'trang' => '4-lap-luu-ho-so-dao-tao',
+                            'mo_ta' => 'Một file Word — sổ sách, giáo án (mẫu hồ sơ đào tạo)',
+                            'children' => [
+                                [
+                                    'title' => 'Quyết định về việc lập hồ sơ',
+                                    'mo_ta' => 'Gồm QĐ lập + thống kê tài liệu',
+                                    'trang' => '4-dt-quyet-dinh-lap-ho-so',
+                                    'route' => 'qldtmoto.4-dt-quyet-dinh-lap-ho-so.index',
+                                    'active' => 'qldtmoto.4-dt-quyet-dinh-lap-ho-so.*',
+                                ],
+                                [
+                                    'title' => 'Quyết định về việc lưu hồ sơ',
+                                    'mo_ta' => 'Gồm QĐ lưu + bản định thời hạn bảo quản',
+                                    'trang' => '4-dt-quyet-dinh-luu-ho-so',
+                                    'route' => 'qldtmoto.4-dt-quyet-dinh-luu-ho-so.index',
+                                    'active' => 'qldtmoto.4-dt-quyet-dinh-luu-ho-so.*',
+                                ],
+                            ],
                         ],
                     ],
                 ],
