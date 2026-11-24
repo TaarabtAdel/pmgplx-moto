@@ -21,6 +21,12 @@ Bản tách từ `laravel/`, **PMGPLX-MOTO** + **QLĐT XE MÁY** (`/qldt-moto`):
 php artisan manhlinh-moto:setup
 ```
 
+Migration MANHLINH_MOTO (app + QLĐT mô tô + SatHach…): một thư mục `database/migrations/manhlinh`.
+
+```bash
+php artisan migrate --database=sqlsrv_manhlinh_moto --path=database/migrations/manhlinh --force
+```
+
 ## Cài đặt
 
 ```bash

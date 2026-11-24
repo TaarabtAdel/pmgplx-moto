@@ -1,38 +1,44 @@
 <?php
 
+use App\Support\ManhlinhMoto;
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration
 {
-    protected $connection = 'sqlsrv_manhlinh_moto';
+    public function getConnection(): ?string
+    {
+        return ManhlinhMoto::connection();
+    }
 
     public function up(): void
     {
-        $schema = Schema::connection($this->connection);
+        $schema = Schema::connection($this->getConnection());
         if (! $schema->hasTable('QldtMotoLichDuKienThucHanh')) {
+            return;
+        }
+        if ($schema->hasColumn('QldtMotoLichDuKienThucHanh', 'CauHinhJson')) {
             return;
         }
 
         $schema->table('QldtMotoLichDuKienThucHanh', function (Blueprint $table): void {
-            if (! Schema::connection('sqlsrv_manhlinh_moto')->hasColumn('QldtMotoLichDuKienThucHanh', 'CauHinhJson')) {
-                $table->text('CauHinhJson')->nullable();
-            }
+            $table->text('CauHinhJson')->nullable();
         });
     }
 
     public function down(): void
     {
-        $schema = Schema::connection($this->connection);
+        $schema = Schema::connection($this->getConnection());
         if (! $schema->hasTable('QldtMotoLichDuKienThucHanh')) {
+            return;
+        }
+        if (! $schema->hasColumn('QldtMotoLichDuKienThucHanh', 'CauHinhJson')) {
             return;
         }
 
         $schema->table('QldtMotoLichDuKienThucHanh', function (Blueprint $table): void {
-            if (Schema::connection('sqlsrv_manhlinh_moto')->hasColumn('QldtMotoLichDuKienThucHanh', 'CauHinhJson')) {
-                $table->dropColumn('CauHinhJson');
-            }
+            $table->dropColumn('CauHinhJson');
         });
     }
 };

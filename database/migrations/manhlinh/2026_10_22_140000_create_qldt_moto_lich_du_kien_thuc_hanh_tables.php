@@ -1,5 +1,6 @@
 <?php
 
+use App\Support\ManhlinhMoto;
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
@@ -11,11 +12,14 @@ use Illuminate\Support\Facades\Schema;
  */
 return new class extends Migration
 {
-    protected $connection = 'sqlsrv_manhlinh_moto';
+    public function getConnection(): ?string
+    {
+        return ManhlinhMoto::connection();
+    }
 
     public function up(): void
     {
-        $schema = Schema::connection($this->connection);
+        $schema = Schema::connection($this->getConnection());
 
         if (! $schema->hasTable('QldtMotoLichDuKienThucHanh')) {
             $schema->create('QldtMotoLichDuKienThucHanh', function (Blueprint $table) {
@@ -89,7 +93,7 @@ return new class extends Migration
 
     public function down(): void
     {
-        $schema = Schema::connection($this->connection);
+        $schema = Schema::connection($this->getConnection());
         $schema->dropIfExists('QldtMotoLichDuKienThucHanhBuoi');
         $schema->dropIfExists('QldtMotoLichDuKienThucHanhCapGv');
         $schema->dropIfExists('QldtMotoLichDuKienThucHanhNgayNghi');

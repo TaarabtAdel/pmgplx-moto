@@ -1,5 +1,6 @@
 <?php
 
+use App\Support\ManhlinhMoto;
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Carbon;
@@ -13,12 +14,16 @@ use Illuminate\Support\Facades\Schema;
  */
 return new class extends Migration
 {
-    protected $connection = 'sqlsrv_manhlinh_moto';
+    public function getConnection(): ?string
+    {
+        return ManhlinhMoto::connection();
+    }
 
     public function up(): void
     {
-        $schema = Schema::connection($this->connection);
-        $conn = DB::connection($this->connection);
+        $conn = $this->getConnection();
+        $schema = Schema::connection($conn);
+        $db = DB::connection($conn);
 
         if (! $schema->hasTable('QldtMotoBaiHoc')) {
             $schema->create('QldtMotoBaiHoc', function (Blueprint $table) {
@@ -45,14 +50,14 @@ return new class extends Migration
             $now = Carbon::now();
             $baiHocId = [];
             $thuTu = [];
-            $rows = $conn->table('QldtMotoBaiDay')->orderBy('Hang')->orderBy('Ca')->orderBy('ThuTu')->orderBy('Id')->get();
+            $rows = $db->table('QldtMotoBaiDay')->orderBy('Hang')->orderBy('Ca')->orderBy('ThuTu')->orderBy('Id')->get();
             foreach ($rows as $r) {
                 $ten = trim((string) preg_replace('/\s+/u', ' ', (string) $r->NoiDung));
                 $tab = $r->Hang.'|'.$r->Ca;
                 $key = $tab.'|'.mb_strtolower($ten);
                 if (! isset($baiHocId[$key])) {
                     $thuTu[$tab] = ($thuTu[$tab] ?? 0) + 1;
-                    $baiHocId[$key] = $conn->table('QldtMotoBaiHoc')->insertGetId([
+                    $baiHocId[$key] = $db->table('QldtMotoBaiHoc')->insertGetId([
                         'Hang' => $r->Hang,
                         'Ca' => $r->Ca,
                         'Ten' => $ten,
@@ -63,7 +68,7 @@ return new class extends Migration
                         'NgayCapNhat' => $now,
                     ]);
                 }
-                $conn->table('QldtMotoBaiDay')->where('Id', $r->Id)->update(['BaiHocId' => $baiHocId[$key]]);
+                $db->table('QldtMotoBaiDay')->where('Id', $r->Id)->update(['BaiHocId' => $baiHocId[$key]]);
             }
 
             $schema->table('QldtMotoBaiDay', function (Blueprint $table) {
@@ -71,12 +76,12 @@ return new class extends Migration
             });
         }
 
-        $conn->statement('ALTER TABLE [QldtMotoBaiDay] ALTER COLUMN [BaiHocId] INT NOT NULL');
-        $conn->statement(
+        $db->statement('ALTER TABLE [QldtMotoBaiDay] ALTER COLUMN [BaiHocId] INT NOT NULL');
+        $db->statement(
             "IF NOT EXISTS (SELECT 1 FROM sys.foreign_keys WHERE name = N'FK_QldtMotoBaiDay_BaiHoc')
                 ALTER TABLE [QldtMotoBaiDay] ADD CONSTRAINT [FK_QldtMotoBaiDay_BaiHoc] FOREIGN KEY ([BaiHocId]) REFERENCES [QldtMotoBaiHoc]([Id])"
         );
-        $conn->statement(
+        $db->statement(
             "IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = N'IX_QldtMotoBaiDay_BaiHocId' AND object_id = OBJECT_ID(N'dbo.QldtMotoBaiDay'))
                 CREATE INDEX [IX_QldtMotoBaiDay_BaiHocId] ON [QldtMotoBaiDay]([BaiHocId])"
         );
@@ -84,8 +89,9 @@ return new class extends Migration
 
     public function down(): void
     {
-        $schema = Schema::connection($this->connection);
-        $conn = DB::connection($this->connection);
+        $conn = $this->getConnection();
+        $schema = Schema::connection($conn);
+        $db = DB::connection($conn);
 
         if (! $schema->hasColumn('QldtMotoBaiDay', 'NoiDung')) {
             $schema->table('QldtMotoBaiDay', function (Blueprint $table) {
@@ -94,18 +100,18 @@ return new class extends Migration
                 $table->string('GioKetThuc', 50)->nullable();
             });
         }
-        $conn->statement(
+        $db->statement(
             'UPDATE d SET d.[NoiDung] = h.[Ten], d.[GioBatDau] = h.[GioBatDau], d.[GioKetThuc] = h.[GioKetThuc]
              FROM [QldtMotoBaiDay] d JOIN [QldtMotoBaiHoc] h ON h.[Id] = d.[BaiHocId]'
         );
-        $conn->statement("UPDATE [QldtMotoBaiDay] SET [NoiDung] = N'' WHERE [NoiDung] IS NULL");
-        $conn->statement('ALTER TABLE [QldtMotoBaiDay] ALTER COLUMN [NoiDung] NVARCHAR(500) NOT NULL');
+        $db->statement("UPDATE [QldtMotoBaiDay] SET [NoiDung] = N'' WHERE [NoiDung] IS NULL");
+        $db->statement('ALTER TABLE [QldtMotoBaiDay] ALTER COLUMN [NoiDung] NVARCHAR(500) NOT NULL');
 
-        $conn->statement(
+        $db->statement(
             "IF EXISTS (SELECT 1 FROM sys.foreign_keys WHERE name = N'FK_QldtMotoBaiDay_BaiHoc')
                 ALTER TABLE [QldtMotoBaiDay] DROP CONSTRAINT [FK_QldtMotoBaiDay_BaiHoc]"
         );
-        $conn->statement(
+        $db->statement(
             "IF EXISTS (SELECT 1 FROM sys.indexes WHERE name = N'IX_QldtMotoBaiDay_BaiHocId' AND object_id = OBJECT_ID(N'dbo.QldtMotoBaiDay'))
                 DROP INDEX [IX_QldtMotoBaiDay_BaiHocId] ON [QldtMotoBaiDay]"
         );

@@ -41,7 +41,7 @@ class SetupManhlinhMoto extends Command
         try {
             Artisan::call('migrate', [
                 '--database' => $conn,
-                '--path' => 'database/migrations/manhlinh_moto',
+                '--path' => 'database/migrations/manhlinh',
                 '--force' => true,
             ]);
             $this->line(Artisan::output());

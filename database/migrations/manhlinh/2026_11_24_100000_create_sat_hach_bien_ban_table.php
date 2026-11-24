@@ -7,7 +7,7 @@ use Illuminate\Support\Facades\Schema;
 use App\Support\ManhlinhMoto;
 
 /**
- *   php artisan migrate --database=sqlsrv_manhlinh_moto --path=database/migrations/manhlinh_moto
+ *   php artisan migrate --database=sqlsrv_manhlinh_moto --path=database/migrations/manhlinh
  */
 return new class extends Migration
 {
